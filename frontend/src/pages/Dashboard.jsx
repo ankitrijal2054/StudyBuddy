@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card";
 
 export default function Dashboard() {
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, studentProfile } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -22,6 +22,22 @@ export default function Dashboard() {
       console.error("Logout error:", error);
     }
   };
+
+  // Handle loading state
+  if (!studentProfile) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Card className="w-96">
+          <CardHeader>
+            <CardTitle>Loading Your Profile...</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p>Please wait while we fetch your student profile.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -36,16 +52,39 @@ export default function Dashboard() {
         <Card>
           <CardHeader>
             <CardTitle>
-              Welcome, {currentUser?.displayName || currentUser?.email}!
+              Welcome,{" "}
+              {studentProfile.name ||
+                currentUser?.displayName ||
+                currentUser?.email}
+              !
             </CardTitle>
             <CardDescription>
               You're successfully logged in to StudyBuddy
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground">
-              This is your dashboard. More features coming soon!
-            </p>
+            <div className="mt-6 bg-white p-4 rounded shadow">
+              <p>
+                <strong>Grade:</strong> {studentProfile.grade}
+              </p>
+              <p>
+                <strong>Email:</strong> {studentProfile.email}
+              </p>
+              <p>
+                <strong>Subjects:</strong>{" "}
+                {studentProfile.subjects?.join(", ") || "N/A"}
+              </p>
+              <p>
+                <strong>Sessions:</strong> {studentProfile.sessions_count}
+              </p>
+
+              <h2 className="mt-4 font-bold">Goals:</h2>
+              <ul>
+                {studentProfile.goals?.map((goal) => (
+                  <li key={goal}>• {goal}</li>
+                )) || <li>No goals yet</li>}
+              </ul>
+            </div>
           </CardContent>
         </Card>
       </div>
