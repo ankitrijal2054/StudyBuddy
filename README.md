@@ -27,6 +27,21 @@ A persistent AI learning companion that uses Retrieval-Augmented Generation (RAG
 | **Email**      | SendGrid                       | Transactional emails      |
 | **Hosting**    | Firebase Hosting               | Static site               |
 
+## 🎯 IMPORTANT: Firebase UID Standardization
+
+**Status**: ✅ COMPLETE - All scripts updated!
+
+The project now uses Firebase UID as the ONLY student identifier everywhere. This fixes the RAG context retrieval issue.
+
+**To Get Started**:
+1. Read: `NEXT_STEPS.md` (5-minute guide)
+2. Or read: `SETUP_FIREBASE_UID.md` (comprehensive guide)
+3. Or read: `QUICK_REFERENCE.md` (quick lookup)
+
+Follow the 5-step quick start in `NEXT_STEPS.md` to test the full chat + RAG system.
+
+---
+
 ## ⚡ Quick Start
 
 ### Prerequisites

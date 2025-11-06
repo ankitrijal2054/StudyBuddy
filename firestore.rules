@@ -16,49 +16,62 @@ service cloud.firestore {
       allow read, write: if isOwner(uid);
     }
 
-    // Students collection - each student can read/write their own profile
-    match /students/{uid} {
-      allow read, write: if isOwner(uid);
+    // User profiles collection - maps auth UID to student_id
+    match /user_profiles/{uid} {
+      allow read: if isOwner(uid);
+      allow write: if false; // Only backend can write
     }
 
-    // Goals collection - each user can read/write their own goals
+    // Students collection - authenticated users can read any student profile
+    match /students/{student_id} {
+      allow read: if isAuth();
+      allow write: if false; // Only backend can write
+    }
+
+    // Helper function to check if user owns this resource via user_profiles
+    function getUserStudentId() {
+      return get(/databases/$(database)/documents/user_profiles/$(request.auth.uid)).data.student_id;
+    }
+
+    // Goals collection - authenticated users can read/write their own goals
     match /goals/{document=**} {
-      allow read, write: if isAuth() && resource.data.student_id == request.auth.uid;
-      allow create: if isAuth() && request.resource.data.student_id == request.auth.uid;
+      allow read, write: if isAuth() && resource.data.student_id == getUserStudentId();
+      allow create: if isAuth() && request.resource.data.student_id == getUserStudentId();
     }
 
-    // Conversations collection - each user can read/write their own conversations
+    // Conversations collection - authenticated users can read/write their own conversations
     match /conversations/{document=**} {
-      allow read, write: if isAuth() && resource.data.student_id == request.auth.uid;
-      allow create: if isAuth() && request.resource.data.student_id == request.auth.uid;
+      allow read, write: if isAuth() && resource.data.student_id == getUserStudentId();
+      allow create: if isAuth() && request.resource.data.student_id == getUserStudentId();
     }
 
-    // Session transcripts collection
+    // Session transcripts collection - users can read their own transcripts
     match /session_transcripts/{document=**} {
-      allow read, write: if isAuth() && resource.data.student_id == request.auth.uid;
+      allow read: if isAuth() && resource.data.student_id == getUserStudentId();
+      allow write: if false; // Only backend can write
     }
 
     // Quizzes collection
     match /quizzes/{document=**} {
-      allow read, write: if isAuth() && resource.data.student_id == request.auth.uid;
-      allow create: if isAuth() && request.resource.data.student_id == request.auth.uid;
+      allow read, write: if isAuth() && resource.data.student_id == getUserStudentId();
+      allow create: if isAuth() && request.resource.data.student_id == getUserStudentId();
     }
 
     // Quiz results collection
     match /quiz_results/{document=**} {
-      allow read, write: if isAuth() && resource.data.student_id == request.auth.uid;
-      allow create: if isAuth() && request.resource.data.student_id == request.auth.uid;
+      allow read, write: if isAuth() && resource.data.student_id == getUserStudentId();
+      allow create: if isAuth() && request.resource.data.student_id == getUserStudentId();
     }
 
     // Recommendations collection
     match /recommendations/{document=**} {
-      allow read, write: if isAuth() && resource.data.student_id == request.auth.uid;
-      allow create: if isAuth() && request.resource.data.student_id == request.auth.uid;
+      allow read, write: if isAuth() && resource.data.student_id == getUserStudentId();
+      allow create: if isAuth() && request.resource.data.student_id == getUserStudentId();
     }
 
     // Nudge logs collection
     match /nudge_logs/{document=**} {
-      allow read: if isAuth() && resource.data.student_id == request.auth.uid;
+      allow read: if isAuth() && resource.data.student_id == getUserStudentId();
       allow write: if false; // Only Cloud Functions can write
     }
   }

@@ -20,8 +20,8 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
-// Connect to emulators in development
-if (import.meta.env.DEV) {
+// Connect to emulators in development (only if explicitly enabled)
+if (import.meta.env.DEV && import.meta.env.VITE_USE_EMULATORS === "true") {
   try {
     connectAuthEmulator(auth, "http://localhost:9099", {
       disableWarnings: true,

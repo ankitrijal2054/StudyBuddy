@@ -60,3 +60,8 @@ coverage/
 temp/
 tmp/
 
+*.cache
+
+firebase-key.json
+
+data/
