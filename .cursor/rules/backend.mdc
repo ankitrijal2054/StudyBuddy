@@ -1,0 +1,412 @@
+Description: Backend (Cloud Functions, Cloud Run) patterns and standards
+Globs: functions/src/**/\*.js, cloud-run/src/**/\*.js
+
+# Backend Rules - Cloud Functions & Cloud Run
+
+## Cloud Functions Standards
+
+### Function Structure
+
+```javascript
+import * as functions from "firebase-functions";
+import * as admin from "firebase-admin";
+
+const db = admin.firestore();
+
+// Auth trigger: Create student profile on new user
+export const onUserCreate = functions.auth.user().onCreate(async (user) => {
+  try {
+    // 1. Create user document
+    await db.collection("users").doc(user.uid).set({
+      uid: user.uid,
+      email: user.email,
+      created_at: admin.firestore.Timestamp.now(),
+      last_login: admin.firestore.Timestamp.now(),
+    });
+
+    // 2. Create student profile
+    const studentRef = db.collection("students").doc();
+    await studentRef.set({
+      student_id: studentRef.id,
+      user_id: user.uid,
+      email: user.email,
+      created_at: admin.firestore.Timestamp.now(),
+      last_active: admin.firestore.Timestamp.now(),
+    });
+
+    console.log(`Student created: ${user.uid}`);
+  } catch (error) {
+    console.error(`Error creating student: ${error.message}`);
+    // Don't throw - auth is already complete
+  }
+});
+
+// Firestore trigger: Generate recommendations on goal completion
+export const onGoalComplete = functions.firestore
+  .document("goals/{goalId}")
+  .onUpdate(async (change, context) => {
+    const before = change.before.data();
+    const after = change.after.data();
+
+    // Only trigger on completion
+    if (before.status !== "completed" && after.status === "completed") {
+      // Generate recommendations
+      console.log(`Goal completed: ${context.params.goalId}`);
+    }
+  });
+
+// Scheduled: Hourly nudge check
+export const checkAndSendNudges = functions.pubsub
+  .schedule("every 1 hours")
+  .onRun(async (context) => {
+    console.log("Nudge check started");
+    // Implement nudge logic
+    console.log("Nudge check completed");
+  });
+```
+
+### Error Handling
+
+- **Never throw in auth triggers** - They've already succeeded
+- **Log all errors** for debugging
+- **Handle partial failures** gracefully
+- **Return status** from scheduled functions
+
+```javascript
+try {
+  // Do work
+} catch (error) {
+  console.error(`Failed: ${error.message}`);
+  // Auth triggers: Don't throw
+  // Scheduled: Return error message
+  return { error: error.message };
+}
+```
+
+### Environment Variables
+
+Always load at top of file:
+
+```javascript
+const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+
+if (!SENDGRID_API_KEY) {
+  throw new Error("Missing SENDGRID_API_KEY");
+}
+```
+
+## Cloud Run Service Standards
+
+### Express Server Setup
+
+```javascript
+// cloud-run/src/index.js
+import express from "express";
+import cors from "cors";
+import helmet from "helmet";
+import { validateFirebaseToken } from "./middleware/auth.js";
+import chatRouter from "./routes/chat.js";
+import quizRouter from "./routes/quiz.js";
+
+const app = express();
+
+// Middleware
+app.use(helmet());
+app.use(cors());
+app.use(express.json());
+
+// Health check (no auth required)
+app.get("/health", (req, res) => {
+  res.json({ status: "ok" });
+});
+
+// Routes (all require auth)
+app.use("/api/chat", validateFirebaseToken, chatRouter);
+app.use("/api/quiz", validateFirebaseToken, quizRouter);
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ error: "Not found" });
+});
+
+// Error handler
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(500).json({ error: "Internal server error" });
+});
+
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+```
+
+### Auth Middleware
+
+```javascript
+// cloud-run/src/middleware/auth.js
+import admin from "firebase-admin";
+
+export async function validateFirebaseToken(req, res, next) {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader?.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "Missing or invalid auth header" });
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  try {
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    req.user = {
+      uid: decodedToken.uid,
+      email: decodedToken.email,
+    };
+    next();
+  } catch (error) {
+    console.error(`Auth error: ${error.message}`);
+    res.status(401).json({ error: "Invalid or expired token" });
+  }
+}
+```
+
+### Route Structure
+
+```javascript
+// cloud-run/src/routes/chat.js
+import { Router } from "express";
+import { handleChatMessage } from "../services/chatService.js";
+
+const router = Router();
+
+router.post("/", async (req, res) => {
+  try {
+    const { message, conversation_id } = req.body;
+    const student_id = req.user.uid;
+
+    if (!message || !conversation_id) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    const result = await handleChatMessage(
+      student_id,
+      message,
+      conversation_id
+    );
+
+    res.json({
+      status: "success",
+      data: result,
+    });
+  } catch (error) {
+    console.error(`Chat error: ${error.message}`);
+    res.status(500).json({
+      status: "error",
+      error: "Failed to process chat message",
+    });
+  }
+});
+
+export default router;
+```
+
+### Service Pattern
+
+```javascript
+// cloud-run/src/services/chatService.js
+import admin from "firebase-admin";
+import { retrieveContext } from "./pinecone.js";
+import { generateResponse } from "./openai.js";
+
+const db = admin.firestore();
+
+export async function handleChatMessage(studentId, message, conversationId) {
+  // 1. Get student profile
+  const studentDoc = await db.collection("students").doc(studentId).get();
+  if (!studentDoc.exists) {
+    throw new Error("Student not found");
+  }
+  const student = studentDoc.data();
+
+  // 2. Retrieve context from Pinecone
+  const context = await retrieveContext(message, studentId, (topK = 5));
+
+  // 3. Generate response
+  const response = await generateResponse(message, student, context);
+
+  // 4. Save to conversation history
+  await db
+    .collection("conversations")
+    .doc(conversationId)
+    .update({
+      messages: admin.firestore.FieldValue.arrayUnion({
+        role: "user",
+        content: message,
+        timestamp: admin.firestore.Timestamp.now(),
+      }),
+      last_updated: admin.firestore.Timestamp.now(),
+    });
+
+  return {
+    response: response.text,
+    confidence_score: response.confidence,
+    should_handoff: response.should_handoff,
+  };
+}
+```
+
+## Pinecone Integration
+
+### Query Pattern
+
+```javascript
+// ALWAYS filter by student_id for data isolation
+export async function retrieveContext(query, studentId, topK = 5) {
+  const queryEmbedding = await getEmbedding(query);
+
+  const results = await index.query({
+    vector: queryEmbedding,
+    filter: { student_id: studentId }, // CRITICAL: User isolation
+    topK: topK,
+    includeMetadata: true,
+  });
+
+  return results.matches.map((match) => ({
+    text: match.metadata.chunk_text,
+    score: match.score,
+    source: match.metadata.transcript_id,
+  }));
+}
+
+// Upsert pattern
+export async function upsertTranscriptChunks(studentId, transcriptId, chunks) {
+  const vectors = [];
+
+  for (const [i, chunk] of chunks.entries()) {
+    const embedding = await getEmbedding(chunk);
+    vectors.push({
+      id: `${studentId}_${transcriptId}_chunk${i}`,
+      values: embedding,
+      metadata: {
+        student_id: studentId,
+        transcript_id: transcriptId,
+        chunk_text: chunk,
+        index: i,
+      },
+    });
+  }
+
+  await index.upsert(vectors);
+}
+```
+
+## OpenAI Integration
+
+### Structured Output (JSON)
+
+```javascript
+export async function generateQuiz(studentId, subject, numQuestions) {
+  const prompt = `Generate ${numQuestions} multiple-choice questions...`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a quiz generation expert. Always respond with valid JSON.",
+      },
+      { role: "user", content: prompt },
+    ],
+    response_format: { type: "json_object" }, // CRITICAL: Structured output
+    temperature: 0.7,
+  });
+
+  const quizData = JSON.parse(response.choices[0].message.content);
+  return quizData;
+}
+```
+
+### LangChain Pattern
+
+```javascript
+import { ChatOpenAI } from "@langchain/openai";
+import { PromptTemplate } from "@langchain/core/prompts";
+
+const llm = new ChatOpenAI({
+  modelName: "gpt-4o-mini",
+  temperature: 0.7,
+  openAIApiKey: process.env.OPENAI_API_KEY,
+});
+
+const template = `You are an AI study companion...
+STUDENT: {student_name}
+GRADE: {grade}
+CONTEXT: {context}
+QUESTION: {message}
+RESPONSE:`;
+
+const prompt = PromptTemplate.fromTemplate(template);
+
+export async function chat(studentData, message, context) {
+  const formattedPrompt = await prompt.format({
+    student_name: studentData.name,
+    grade: studentData.grade,
+    context: context,
+    message: message,
+  });
+
+  const response = await llm.invoke(formattedPrompt);
+  return response.content;
+}
+```
+
+## Performance Optimization
+
+### Batch Operations
+
+```javascript
+// Batch read: Get multiple student goals at once
+const batch = db.batch();
+const goalRefs = [ref1, ref2, ref3];
+const goalDocs = await Promise.all(goalRefs.map((ref) => ref.get()));
+```
+
+### Caching
+
+```javascript
+// Cache embedding results to avoid re-embedding
+const embeddingCache = new Map();
+
+export async function getEmbedding(text) {
+  const hash = hashText(text);
+
+  if (embeddingCache.has(hash)) {
+    return embeddingCache.get(hash);
+  }
+
+  const embedding = await openai.embeddings.create({
+    model: "text-embedding-3-small",
+    input: text,
+  });
+
+  embeddingCache.set(hash, embedding.data[0].embedding);
+  return embedding.data[0].embedding;
+}
+```
+
+## Deployment Checklist
+
+- [ ] All environment variables set
+- [ ] Error handling comprehensive
+- [ ] Logging enabled
+- [ ] Firestore queries optimized (indexes)
+- [ ] Pinecone queries filtered by student_id
+- [ ] Auth middleware on all Cloud Run endpoints
+- [ ] Rate limiting considered (future)
+- [ ] Tested locally with Firebase Emulator
+
+---
+
+**Last Updated**: November 5, 2025

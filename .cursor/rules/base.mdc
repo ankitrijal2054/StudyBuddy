@@ -1,0 +1,158 @@
+Description: AI Study Companion - Core project rules and patterns
+
+# AI Study Companion - Base Rules
+
+## Project Overview
+
+- **Product**: Persistent AI learning companion for tutoring platform
+- **Timeline**: 48-hour MVP sprint
+- **Tech Stack**: React + Firebase + Cloud Run + Pinecone + OpenAI
+- **Team**: Solo developer (Ankit)
+
+## Key Constraints
+
+- 48-hour deadline (firm)
+- Mock student data only (5 students, 15 transcripts)
+- All 6 core features in MVP: Auth, Chat, Quiz, Dashboard, Recommendations, Nudges
+- Production-ready code (will be reused)
+- Cost-conscious: Use GPT-4o-mini, Pinecone free tier, Firebase free tier where possible
+
+## Code Philosophy
+
+### 1. React Component Standards
+
+- **Functional components + hooks only** (no class components)
+- **Small, focused components** (<200 lines each)
+- **Components folder**: Presentational components only
+- **Pages folder**: Page-level routing components
+- **Hooks pattern**: Extract logic into custom hooks (`useAuth`, `useFirestore`, `useAPI`)
+- **Context API**: For shared state (AuthContext, ChatContext)
+- **useReducer**: For complex state (chat messages - future extensibility: text → image → audio)
+
+### 2. Styling
+
+- **Tailwind CSS only** (no CSS files or styled-components)
+- **Custom colors**: Indigo-600 (primary), Teal-500 (secondary) - defined in config
+- **Responsive**: Mobile-first approach, test on desktop/tablet/mobile
+- **No inline styles**: Use Tailwind classes only
+
+### 3. Firebase Integration
+
+- **Auth**: `onAuthStateChanged()` for session persistence
+- **Firestore**: Use `onSnapshot()` listeners for real-time updates (no polling)
+- **Cloud Storage**: Mock data uploads during MVP
+- **Security**: Firestore rules enforce user isolation (no cross-student data access)
+- **Token Management**: Firebase SDK auto-handles refresh
+
+### 4. Backend Architecture
+
+- **Cloud Functions**: Lightweight triggers (auth, recommendations, nudges)
+- **Cloud Run**: Heavy AI workloads (chat, quiz generation, RAG retrieval)
+- **LangChain**: For RAG orchestration + prompt templating
+- **Pinecone**: Vector DB queries filtered by `student_id` (isolation)
+- **OpenAI**: GPT-4o-mini for all LLM tasks (speed + cost)
+
+### 5. API Design
+
+- **All endpoints**: Firebase auth required (validate token in middleware)
+- **Request format**: JSON with `student_id`, `conversation_id`, `message`
+- **Response format**: Consistent `{ data, error, status }` structure
+- **Error handling**: Return descriptive errors + user-friendly messages
+- **Latency targets**: Chat <2s, Quiz <3s, Dashboard <1s
+
+### 6. Data Model
+
+- **Firestore collections**: users, students, goals, session_transcripts, conversations, quizzes, quiz_results, recommendations, nudge_logs, events
+- **Document structure**: Flat where possible, subcollections for large datasets
+- **Timestamps**: Always use `admin.firestore.Timestamp.now()` (server time)
+- **IDs**: Use Firestore auto-generated IDs (not UUIDs)
+
+### 7. Error Handling
+
+- **Frontend**: `react-hot-toast` for all user-facing errors
+- **Console logging**: Debug logs (development) vs error logs (production)
+- **User messages**: Clear, actionable error text (no technical jargon)
+- **API errors**: Return HTTP status + error code + message
+
+### 8. Performance
+
+- **Lazy load**: Firebase SDK only when needed
+- **Batch queries**: Combine multiple Firestore reads where possible
+- **Real-time optimization**: Only attach listeners to visible components
+- **Image optimization**: Compress before upload to Storage
+- **API caching**: Cache embedding results (don't re-embed same text)
+
+### 9. Security
+
+- **.env files**: Never commit (add to .gitignore)
+- **Firebase rules**: Enforce strict user/student isolation
+- **Token validation**: Cloud Run middleware validates all requests
+- **Pinecone filters**: All queries include `student_id` filter
+- **Secrets**: Use environment variables, never hardcode API keys
+
+### 10. Git Workflow
+
+- **Commits**: Every 4-6 hours with descriptive messages
+- **Branches**: Main only (single developer)
+- **Messages**: Clear, feature-focused (e.g., "Phase 3: Chat agent with RAG")
+
+## File Structure (Strict Adherence)
+
+```
+/frontend/src
+├── pages/          (Page-level components)
+├── components/     (Reusable UI components)
+├── contexts/       (React Context: AuthContext, ChatContext)
+├── hooks/          (Custom hooks: useAuth, useFirestore, useAPI)
+├── services/       (Business logic: api.js for all HTTP calls)
+└── firebase.js     (Firebase initialization + config)
+
+/functions/src
+├── index.js        (Exports all functions)
+├── auth.js         (Auth triggers)
+├── recommendations.js  (Goal completion trigger)
+├── scheduledNudges.js  (Hourly scheduled function)
+└── services/       (Shared logic)
+
+/cloud-run/src
+├── index.js        (Express server setup)
+├── middleware/     (Auth validation)
+├── routes/         (Express routes)
+└── services/       (Business logic: chat, quiz, embeddings)
+```
+
+## Testing Strategy
+
+- **Manual end-to-end**: Test each feature before moving to next phase
+- **Firebase Emulator**: Local development (Auth, Firestore, Functions)
+- **DevTools**: Network/Performance monitoring for latency
+- **Test Accounts**: 5 mock students with realistic data
+- **Error Scenarios**: Network failures, expired tokens, LLM timeouts
+
+## Deployment Checklist
+
+- [ ] Environment variables configured
+- [ ] Firestore rules deployed
+- [ ] Cloud Storage rules deployed
+- [ ] Cloud Functions deployed
+- [ ] Cloud Run deployed
+- [ ] All endpoints returning 200 OK
+- [ ] Real-time listeners working
+- [ ] README.md complete
+- [ ] API.md complete
+- [ ] ARCHITECTURE.md complete
+
+## Common Pitfalls to Avoid
+
+1. **Hardcoding API keys** → Use .env files
+2. **Cross-user data leakage** → Always filter by student_id in Pinecone
+3. **Forgetting auth token validation** → All Cloud Run endpoints require token
+4. **Not chunking transcripts** → Large transcripts exceed OpenAI token limits
+5. **Overusing Cloud Functions** → Use Cloud Run for compute-heavy tasks
+6. **Firestore permission errors** → Deploy security rules early
+7. **Real-time listener bloat** → Only attach to visible components
+8. **LLM output parsing** → Use structured JSON format (response_format: { type: "json_object" })
+
+---
+
+**Last Updated**: November 5, 2025

@@ -1,0 +1,66 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user is authenticated
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if user is the owner of the document
+    function isOwner(uid) {
+      return request.auth.uid == uid;
+    }
+
+    // Users collection - each user can only read/write their own profile
+    match /users/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // Students collection - each student can read/write their own profile
+    match /students/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // Goals collection - each user can read/write their own goals
+    match /goals/{document=**} {
+      allow read, write: if isAuth() && resource.data.student_id == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.student_id == request.auth.uid;
+    }
+
+    // Conversations collection - each user can read/write their own conversations
+    match /conversations/{document=**} {
+      allow read, write: if isAuth() && resource.data.student_id == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.student_id == request.auth.uid;
+    }
+
+    // Session transcripts collection
+    match /session_transcripts/{document=**} {
+      allow read, write: if isAuth() && resource.data.student_id == request.auth.uid;
+    }
+
+    // Quizzes collection
+    match /quizzes/{document=**} {
+      allow read, write: if isAuth() && resource.data.student_id == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.student_id == request.auth.uid;
+    }
+
+    // Quiz results collection
+    match /quiz_results/{document=**} {
+      allow read, write: if isAuth() && resource.data.student_id == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.student_id == request.auth.uid;
+    }
+
+    // Recommendations collection
+    match /recommendations/{document=**} {
+      allow read, write: if isAuth() && resource.data.student_id == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.student_id == request.auth.uid;
+    }
+
+    // Nudge logs collection
+    match /nudge_logs/{document=**} {
+      allow read: if isAuth() && resource.data.student_id == request.auth.uid;
+      allow write: if false; // Only Cloud Functions can write
+    }
+  }
+}
+

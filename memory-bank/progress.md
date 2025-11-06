@@ -1,0 +1,269 @@
+# Progress Tracker
+
+## 48-Hour Sprint Status
+
+```
+🟢 Phase 0: [███████████████████░] 95% - Firebase Setup & Auth (0-3h)
+⚫ Phase 1: [----] 0% - Mock Data & Cloud Storage (3-7h)
+⚫ Phase 2: [----] 0% - Pinecone RAG Pipeline (7-13h)
+⚫ Phase 3: [----] 0% - Chat Agent (13-22h)
+⚫ Phase 4: [----] 0% - Quiz Generator (22-30h)
+⚫ Phase 5: [----] 0% - Dashboard (30-38h)
+⚫ Phase 6: [----] 0% - Recommendations (38-42h)
+⚫ Phase 7: [----] 0% - Nudge System (42-46h)
+⚫ Phase 8: [----] 0% - Integration & Testing (46-48h)
+```
+
+**Overall**: 95% Phase 0 complete (Frontend recreated with shadcn/ui, awaiting Firebase project creation)
+
+---
+
+## What's Done ✅
+
+### Memory Bank (Foundation)
+
+- [x] `projectbrief.md` - Core project decisions + success metrics
+- [x] `productContext.md` - Why we're building this, user journeys, value props
+- [x] `activeContext.md` - Current focus + next actions
+- [x] `systemPatterns.md` - Architecture, data flow, component structure
+- [x] `techContext.md` - Tech stack, setup, deployment, costs
+- [x] `progress.md` - This file (tracking progress)
+
+### Documentation
+
+- [ ] Finalize PRD v2 (with Pinecone confirmed)
+- [ ] Finalize TaskList v2 (decisions baked in)
+- [ ] Create `.cursor/rules/` (coding patterns)
+
+---
+
+## What's Next (Immediate - Next 1 Hour)
+
+1. **Create `.cursor/rules/` directory** with project patterns
+2. **Get user approval** on Memory Bank structure
+3. **BEGIN Phase 0**: Firebase setup
+   - [ ] Create Firebase project in console
+   - [ ] Initialize Firestore database
+   - [ ] Set up Cloud Storage bucket
+   - [ ] Enable Firebase Auth
+   - [ ] Run `firebase init`
+
+---
+
+## Phase Breakdown with Key Milestones
+
+### Phase 0: Firebase Setup & Authentication (0-3h)
+
+**Goal**: All 5 test users can register/login
+
+**Milestones**:
+
+- [ ] Firebase project created + configured
+- [x] Frontend initialized (React + Vite + Tailwind CSS v3.4.1 + shadcn/ui)
+- [x] shadcn/ui components created (Button, Input, Card)
+- [x] CSS variables configured for theming
+- [x] Path aliases configured (`@/` for `src/`)
+- [x] AuthContext working (ready for Firebase integration)
+- [x] Registration + Login pages functional (using shadcn/ui)
+- [x] Dashboard placeholder created
+- [x] Routing and protected routes set up
+- [x] Firebase config with emulator support
+- [ ] Firebase project created in console (user action required)
+- [ ] Frontend `.env.local` configured with Firebase keys
+- [ ] Cloud Function: onUserCreate trigger (creates student profile)
+- [x] Firestore security rules locked down (from previous setup)
+- [x] Storage rules configured (from previous setup)
+- [ ] 5 test users registered
+
+### Phase 1: Mock Data & Cloud Storage (3-7h)
+
+**Goal**: 5 students + 15 transcripts in system
+
+**Milestones**:
+
+- [ ] Generate 5 student JSON profiles
+- [ ] Generate 15 session transcripts (3 per student)
+- [ ] Upload all to Cloud Storage
+- [ ] Populate Firestore: `students`, `session_transcripts`, `goals`
+- [ ] Verify data queryable by student_id
+
+### Phase 2: Pinecone RAG Pipeline (7-13h)
+
+**Goal**: Semantic search retrieval working
+
+**Milestones**:
+
+- [ ] Pinecone account + index created
+- [ ] Embedding service working (OpenAI API)
+- [ ] Transcripts chunked + embedded
+- [ ] Upserted to Pinecone (~45 vectors)
+- [ ] Similarity search working (query Pinecone, get relevant chunks)
+- [ ] Student data isolation verified (cross-student filter working)
+
+### Phase 3: Chat Agent (13-22h)
+
+**Goal**: Chat with AI about lessons, get context from transcripts
+
+**Milestones**:
+
+- [ ] Cloud Run service initialized (Express)
+- [ ] Firebase auth middleware working
+- [ ] Chat endpoint `/api/chat` responding
+- [ ] RAG retrieval (Pinecone query) working
+- [ ] LangChain prompt formatting + GPT-4o-mini response working
+- [ ] Handoff detection logic working
+- [ ] Frontend Chat UI component complete
+- [ ] End-to-end chat flow tested (message → AI response with context)
+
+### Phase 4: Quiz Generator (22-30h)
+
+**Goal**: Generate quizzes, auto-complete goals at 85%
+
+**Milestones**:
+
+- [ ] Quiz generation endpoint `/api/quiz/generate` working
+- [ ] Quiz submission endpoint `/api/quiz/submit` working
+- [ ] Auto-goal-completion logic (score ≥85%)
+- [ ] Frontend Quiz UI (questions, radio buttons, submit)
+- [ ] Celebration modal on goal completion
+- [ ] Event trigger for recommendations
+
+### Phase 5: Progress Dashboard (30-38h)
+
+**Goal**: Real-time multi-goal tracking
+
+**Milestones**:
+
+- [ ] Dashboard layout (goals section, analytics, activity feed)
+- [ ] Real-time goal listeners (Firestore onSnapshot)
+- [ ] Goal progress cards displaying correctly
+- [ ] Quiz performance chart (line graph with Recharts)
+- [ ] Activity feed updating in real-time
+- [ ] Multi-goal summary (total % complete, active vs completed)
+
+### Phase 6: Recommendations Engine (38-42h)
+
+**Goal**: Suggest related subjects on goal completion
+
+**Milestones**:
+
+- [ ] Cloud Function trigger on goal completion
+- [ ] LLM recommendation generation (GPT-4o-mini)
+- [ ] Filter out already-completed subjects
+- [ ] Store recommendations in Firestore
+- [ ] Frontend Recommendations page displaying 3 suggestions
+- [ ] "Start Learning" button creates new goal
+- [ ] Celebration animation + immediate redirect to recommendations
+
+### Phase 7: Nudge System (42-46h)
+
+**Goal**: Smart email nudges trigger automatically
+
+**Milestones**:
+
+- [ ] SendGrid integration working
+- [ ] Scheduled Cloud Function (hourly)
+- [ ] Day 7 nudge logic (check enrollment date, session count)
+- [ ] Inactivity nudge logic (3+ days no chat)
+- [ ] Goal near-completion nudge (progress ≥85%)
+- [ ] Email templates with personalized callouts
+- [ ] Nudge deduplication (prevent duplicate sends)
+- [ ] Test: Manually trigger all 3 nudge types
+
+### Phase 8: Integration & Testing (46-48h)
+
+**Goal**: All systems working together, no critical bugs
+
+**Milestones**:
+
+- [ ] Full auth flow (register → login → persist → logout)
+- [ ] Full chat flow (message → context → response → handoff)
+- [ ] Full quiz flow (generate → submit → grade → goal completion → recommendations)
+- [ ] Full dashboard flow (real-time updates)
+- [ ] Full recommendation flow (goal complete → recommendations appear → start learning → new goal created)
+- [ ] Full nudge flow (Day 7 email sent, inactivity email sent, goal near-complete email sent)
+- [ ] Performance verified (<2s chat, <3s quiz, <1s dashboard)
+- [ ] Error handling tested (network failures, invalid tokens, LLM timeouts)
+
+---
+
+## Known Issues & Risks
+
+| Issue                              | Severity | Mitigation                                                                         |
+| ---------------------------------- | -------- | ---------------------------------------------------------------------------------- |
+| GPT-4o-mini recommendation quality | Medium   | Test early (Phase 6), validate with user, fallback to hardcoded mappings if needed |
+| Pinecone free tier limits          | Low      | 45 vectors is within free tier (~1000 vector limit)                                |
+| 48-hour timeline pressure          | Medium   | Triage: Quiz generation → Recommendations → Nudges if falling behind               |
+| Cloud Run cold start latency       | Low      | Use `min_instances: 1` in Phase 9 if budget allows                                 |
+| Firebase Firestore costs           | Low      | MVP should stay <$2/day, monitor daily                                             |
+| SendGrid free tier (100/day)       | Low      | 5 students × 3 nudge types = 15/day max (safe)                                     |
+
+---
+
+## Rollback Plan (If Behind Schedule)
+
+### Option A: Reduce Nudge Types (Drop to 2)
+
+- Keep: Day 7 + Goal near-completion
+- Drop: Inactivity nudge
+- Saves: ~3 hours (Phase 7)
+
+### Option B: Reduce Quiz Difficulty Adaptation
+
+- Keep: Basic quiz generation + submission
+- Drop: Weak spot targeting, difficulty scaling logic
+- Saves: ~2 hours (Phase 4)
+
+### Option C: Simplify Dashboard
+
+- Keep: Goal cards + Activity feed
+- Drop: Quiz performance chart, calendar heatmap
+- Saves: ~2 hours (Phase 5)
+
+### Option D: Skip End-to-End Testing (Not Recommended)
+
+- Deploy with known issues
+- Major risk to stability
+
+**Preferred approach**: Keep all features, compress testing (Phase 8) to 1 hour if needed.
+
+---
+
+## Deployment Checklist (Hour 48)
+
+- [ ] Firebase Hosting deployed (frontend build)
+- [ ] Cloud Functions deployed (auth triggers, recommendations, nudges)
+- [ ] Cloud Run deployed (chat, quiz endpoints)
+- [ ] Firestore rules deployed
+- [ ] Cloud Storage rules deployed
+- [ ] Environment variables configured in production
+- [ ] All endpoints returning 200 OK
+- [ ] Real-time listeners working
+- [ ] Error handling working
+- [ ] README.md complete
+- [ ] API.md complete
+- [ ] ARCHITECTURE.md complete
+
+---
+
+## Post-MVP Phase 2 Planning
+
+### Nerdy Integration
+
+- [ ] Swap mock students → real Nerdy student API
+- [ ] Swap mock transcripts → real Nerdy tutoring API
+- [ ] Add Nerdy SSO authentication
+- [ ] Sync real tutor availability
+
+### Advanced Features
+
+- [ ] Whiteboard collaboration (placeholder ready)
+- [ ] Voice input/output (GPT-4 audio)
+- [ ] Problem generation (auto-create practice problems)
+- [ ] Analytics dashboard (churn tracking, engagement metrics)
+- [ ] A/B testing framework (email subject line tests, nudge timing)
+
+---
+
+**Last Updated**: November 6, 2025  
+**Next Update**: After Phase 0 completion (~hour 3)

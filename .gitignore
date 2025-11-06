@@ -1,0 +1,62 @@
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.production.local
+
+# Node modules
+node_modules/
+*/node_modules/
+
+# Build outputs
+dist/
+build/
+lib/
+
+# Firebase emulator data
+firebase-debug.log
+firestore-debug.log
+pubsub-debug.log
+ui-debug.log
+database-debug.log
+storage-debug.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+*~
+.DS_Store
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Dependencies
+package-lock.json
+yarn.lock
+
+# Firebase emulator export
+emulator-export/
+
+# Cloud Run
+.dockerignore
+*.tar.gz
+
+# Testing
+coverage/
+.nyc_output/
+
+# Temporary
+temp/
+tmp/
+
