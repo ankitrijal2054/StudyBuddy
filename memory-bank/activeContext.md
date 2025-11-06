@@ -3,7 +3,7 @@
 ## Current Phase
 
 **Phase 0**: Firebase Setup & Authentication (Hours 0-3)  
-**Status**: ✅ 95% Complete - Frontend recreated with shadcn/ui, awaiting Firebase Console Setup
+**Status**: ✅ 100% Complete - Frontend built & deployed to Firebase Hosting!
 
 ## What We Just Completed
 
@@ -87,12 +87,15 @@
 ## Development Environment
 
 - **Workspace**: `/Users/ankit/Desktop/GauntletAI/StudyBuddy`
-- **Frontend**: React 18 + Vite + shadcn/ui + Tailwind CSS v3.4.1 (localhost:5173)
+- **Frontend**: React 18 + Vite + shadcn/ui + Tailwind CSS v3.4.1
+- **Live URL**: https://study-buddy-28043.web.app (deployed!)
 - **UI Framework**: shadcn/ui (Radix UI primitives + Tailwind CSS)
+- **Firebase Project**: study-buddy-28043
 - **Firebase Emulators**: Auth (9099), Firestore (8080), Functions (5001), Storage (9199)
 - **Cloud Run**: localhost:8080 (during dev)
 - **Git**: Repository already initialized per user rules
 - **Path Aliases**: `@/` → `src/` configured
+- **Build Output**: 581.85 KB JS, 16.65 KB CSS (built in 2.08s)
 
 ## Important Files to Track
 
