@@ -52,25 +52,22 @@ export const AuthProvider = ({ children }) => {
 
   /**
    * Fetch student profile linked to this auth user
+   * Now uses Firebase UID directly as student_id
    */
   const fetchStudentProfile = async (uid) => {
     try {
-      // Query user_profiles to find student_id
-      const userProfileDoc = await getDoc(doc(db, "user_profiles", uid));
+      // Firebase UID IS the student_id - no mapping needed
+      const studentDoc = await getDoc(doc(db, "students", uid));
 
-      if (userProfileDoc.exists()) {
-        const { student_id } = userProfileDoc.data();
-
-        // Query students collection using student_id
-        const studentDoc = await getDoc(doc(db, "students", student_id));
-
-        if (studentDoc.exists()) {
-          setStudentProfile({
-            ...studentDoc.data(),
-            auth_uid: uid,
-          });
-          return studentDoc.data();
-        }
+      if (studentDoc.exists()) {
+        setStudentProfile({
+          ...studentDoc.data(),
+          auth_uid: uid,
+        });
+        return studentDoc.data();
+      } else {
+        console.warn(`Student profile not found for UID: ${uid}`);
+        setStudentProfile(null);
       }
     } catch (error) {
       console.error("Error fetching student profile:", error);

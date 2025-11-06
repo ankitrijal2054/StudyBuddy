@@ -7,12 +7,12 @@
  * 1. Load transcripts from Firestore
  * 2. Chunk each transcript
  * 3. Generate embeddings
- * 4. Upsert to Pinecone
+ * 4. Upsert to Pinecone (with student_id as Firebase UID)
  * 5. Update Firestore with Pinecone IDs
  *
  * Usage:
  *   node scripts/embedTranscripts.js              # All students
- *   node scripts/embedTranscripts.js --student STU001  # Single student
+ *   node scripts/embedTranscripts.js --uid <uid>  # Single student
  *   node scripts/embedTranscripts.js --dry-run    # Preview only
  */
 
@@ -25,8 +25,8 @@ require("dotenv").config();
 // Parse command line arguments
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
-const studentFilter = args.includes("--student")
-  ? args[args.indexOf("--student") + 1]
+const uidFilter = args.includes("--uid")
+  ? args[args.indexOf("--uid") + 1]
   : null;
 
 // Initialize Firebase
@@ -59,11 +59,12 @@ async function main() {
     const pineconeKey = process.env.PINECONE_API_KEY;
     const pineconeIndex = process.env.PINECONE_INDEX || "study-buddy";
 
-    if (!openaiKey) throw new Error("OPENAI_API_KEY not in .env.local");
-    if (!pineconeKey) throw new Error("PINECONE_API_KEY not in .env.local");
+    if (!openaiKey) throw new Error("OPENAI_API_KEY not in .env");
+    if (!pineconeKey) throw new Error("PINECONE_API_KEY not in .env");
 
     console.log("✓ OpenAI API key found");
     console.log("✓ Pinecone API key found");
+    console.log(`✓ Pinecone index: ${pineconeIndex}`);
     console.log("✓ Firebase configured\n");
 
     // Initialize services
@@ -78,9 +79,9 @@ async function main() {
     console.log("📁 Loading transcripts from Firestore...");
     let query = db.collection("session_transcripts");
 
-    if (studentFilter) {
-      console.log(`   Filter: student_id = ${studentFilter}`);
-      query = query.where("student_id", "==", studentFilter);
+    if (uidFilter) {
+      console.log(`   Filter: student_id = ${uidFilter}`);
+      query = query.where("student_id", "==", uidFilter);
     }
 
     const transcriptDocs = await query.get();
@@ -179,14 +180,14 @@ async function main() {
     console.log(`  • Vectors generated: ${embedded.length}`);
     console.log(`  • Vectors upserted: ${upsertedCount}`);
     console.log(`  • Firestore records updated: ${updateCount}`);
-    console.log(`\n🎉 Ready for Phase 3: Chat Agent\n`);
+    console.log(`\n🎉 Ready to test the chat!\n`);
   } catch (error) {
     console.error("\n❌ Pipeline failed:", error.message);
-    if (error.message.includes(".env.local")) {
-      console.error("\n💡 Make sure your .env.local has:");
+    if (error.message.includes(".env")) {
+      console.error("\n💡 Make sure your .env has:");
       console.error("   - OPENAI_API_KEY");
       console.error("   - PINECONE_API_KEY");
-      console.error("   - PINECONE_INDEX");
+      console.error("   - PINECONE_INDEX (optional, defaults to 'study-buddy')");
     }
     process.exit(1);
   } finally {

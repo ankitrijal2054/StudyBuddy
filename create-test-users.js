@@ -4,7 +4,7 @@
  * 🧪 Create Test Users in Firebase Auth
  *
  * This script creates Firebase Auth users for each mock student
- * and links them in the user_profiles collection.
+ * and returns their UIDs to be used as student_id in Firestore.
  *
  * Usage:
  *   node create-test-users.js
@@ -14,36 +14,31 @@
 
 const admin = require("firebase-admin");
 
-// Test user credentials (linked to mock students)
+// Test user credentials
 const TEST_USERS = [
   {
     email: "alex.chen@example.com",
-    password: "TestPassword123!",
-    student_id: "STU001",
+    password: "test123",
     name: "Alex Chen",
   },
   {
     email: "jordan.patel@example.com",
-    password: "TestPassword123!",
-    student_id: "STU002",
+    password: "test123",
     name: "Jordan Patel",
   },
   {
     email: "samantha.kim@example.com",
-    password: "TestPassword123!",
-    student_id: "STU003",
+    password: "test123",
     name: "Samantha Kim",
   },
   {
     email: "marcus.johnson@example.com",
-    password: "TestPassword123!",
-    student_id: "STU004",
+    password: "test123",
     name: "Marcus Johnson",
   },
   {
     email: "priya.sharma@example.com",
-    password: "TestPassword123!",
-    student_id: "STU005",
+    password: "test123",
     name: "Priya Sharma",
   },
 ];
@@ -76,10 +71,9 @@ try {
 }
 
 const auth = admin.auth();
-const db = admin.firestore();
 
 /**
- * Create test users and link to student profiles
+ * Create test users and return their UIDs
  */
 async function createTestUsers() {
   console.log("🚀 Creating test users...\n");
@@ -88,33 +82,21 @@ async function createTestUsers() {
 
   for (const testUser of TEST_USERS) {
     try {
-      // 1. Create Firebase Auth user
+      // Create Firebase Auth user
       const userRecord = await auth.createUser({
         email: testUser.email,
         password: testUser.password,
         displayName: testUser.name,
       });
 
-      console.log(
-        `✅ Created Auth user: ${testUser.email} (UID: ${userRecord.uid})`
-      );
-
-      // 2. Create user_profiles document linking Auth UID to student_id
-      await db.collection("user_profiles").doc(userRecord.uid).set({
-        auth_uid: userRecord.uid,
-        student_id: testUser.student_id,
-        email: testUser.email,
-        name: testUser.name,
-        created_at: new Date(),
-      });
-
-      console.log(`   ✅ Linked to student profile: ${testUser.student_id}\n`);
+      console.log(`✅ Created Auth user: ${testUser.email}`);
+      console.log(`   UID: ${userRecord.uid}\n`);
 
       results.push({
         email: testUser.email,
         password: testUser.password,
         uid: userRecord.uid,
-        student_id: testUser.student_id,
+        name: testUser.name,
       });
     } catch (error) {
       console.error(
@@ -139,15 +121,14 @@ async function main() {
     console.log("Password for all: TestPassword123!\n");
 
     users.forEach((user) => {
-      console.log(`${user.email}`);
-      console.log(`  → Student ID: ${user.student_id}`);
-      console.log(`  → Auth UID: ${user.uid}\n`);
+      console.log(`Email: ${user.email}`);
+      console.log(`UID (use as student_id): ${user.uid}\n`);
     });
 
     console.log("🎯 Next Steps:");
-    console.log("1. Update frontend AuthContext to query user_profiles");
-    console.log("2. When user logs in, fetch their student profile");
-    console.log("3. Store student_id in React context for dashboard\n");
+    console.log("1. Use the UIDs above as student_id when uploading mock data");
+    console.log("2. Run: node scripts/upload-mock-data.js");
+    console.log("3. Run: node scripts/embedTranscripts.js\n");
 
     process.exit(0);
   } catch (error) {

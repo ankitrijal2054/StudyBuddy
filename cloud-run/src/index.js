@@ -162,9 +162,9 @@ app.get("/api/debug/student-data", validateFirebaseToken, async (req, res) => {
 app.post("/api/chat", validateFirebaseToken, async (req, res) => {
   try {
     const { message } = req.body;
-    const uid = req.user.uid;
+    const studentId = req.user.uid;
 
-    console.log(`\n📨 Chat request from UID: ${uid}`);
+    console.log(`\n📨 Chat request from student: ${studentId}`);
 
     // Validate input
     if (
@@ -185,23 +185,7 @@ app.post("/api/chat", validateFirebaseToken, async (req, res) => {
       });
     }
 
-    // Get the mapped student_id from user_profiles
-    const db = admin.firestore();
-    let studentId = uid;
-    try {
-      const userProfileDoc = await db
-        .collection("user_profiles")
-        .doc(uid)
-        .get();
-      if (userProfileDoc.exists) {
-        studentId = userProfileDoc.data().student_id;
-        console.log(`   ✅ Found mapping: UID → student_id: ${studentId}`);
-      }
-    } catch (error) {
-      console.warn(`   Could not fetch user_profiles: ${error.message}`);
-    }
-
-    // Process chat (no history, no persistence)
+    // Process chat using Firebase UID as student_id
     const result = await chatService.chat(studentId, message);
 
     res.status(200).json({
@@ -234,39 +218,16 @@ app.get(
   validateFirebaseToken,
   async (req, res) => {
     try {
-      const uid = req.user.uid;
-      console.log(`📋 Loading initial context for UID: ${uid}`);
+      const studentId = req.user.uid;
+      console.log(`📋 Loading initial context for student: ${studentId}`);
 
       const db = admin.firestore();
 
-      // Try to get student_id mapping from user_profiles
-      let studentId = uid;
-      try {
-        const userProfileDoc = await db
-          .collection("user_profiles")
-          .doc(uid)
-          .get();
-        if (userProfileDoc.exists) {
-          studentId = userProfileDoc.data().student_id;
-          console.log(`   ✅ Found mapping: UID → student_id: ${studentId}`);
-        } else {
-          console.log(`   No user_profiles mapping, using UID as student_id`);
-        }
-      } catch (error) {
-        console.warn(`   Could not fetch user_profiles: ${error.message}`);
-      }
-
-      // Get student info - try both student_id formats
-      let studentDoc = await db.collection("students").doc(studentId).get();
-
-      // If not found with mapped ID, try with UID
-      if (!studentDoc.exists && studentId !== uid) {
-        console.log(`   Student not found with ${studentId}, trying ${uid}`);
-        studentDoc = await db.collection("students").doc(uid).get();
-      }
+      // Get student info using Firebase UID as primary ID
+      const studentDoc = await db.collection("students").doc(studentId).get();
 
       if (!studentDoc.exists) {
-        console.warn(`   ❌ Student not found (tried ${studentId} and ${uid})`);
+        console.warn(`   ❌ Student not found: ${studentId}`);
         return res.status(404).json({
           error: "Student not found",
         });

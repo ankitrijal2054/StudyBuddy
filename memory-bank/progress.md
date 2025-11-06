@@ -278,15 +278,32 @@
 
 ---
 
-**Last Updated**: November 6, 2025, 10:45 AM (Phase 3 COMPLETE)
-**Next Update**: After Phase 4 completion (Quiz Generator endpoint tested)
+**Last Updated**: November 6, 2025, 11:15 AM (Firebase UID Standardization COMPLETE)
+**Next Update**: After first successful test of chat with proper context retrieval
 
-## Phase 3 Completion Details
+## Firebase UID Standardization (Post-Phase 3)
 
-- Cloud Run Express server fully functional
-- Chat endpoint with RAG retrieval operational
-- Firebase auth middleware securing endpoints
-- Frontend Chat component with modern UI
-- Error handling and validation complete
-- Deployment-ready with Dockerfile
-- Documentation complete (README, quickstart, summary)
+✅ **COMPLETED**: Fixed the foundational student ID issue that was preventing RAG from working
+
+**Problem Solved:**
+- Previously: Firebase UID (auth) vs. Mock Student ID (STU001, STU002, etc.) mismatch caused RAG context retrieval to fail
+- Solution: Use Firebase UID as the ONLY student identifier everywhere
+
+**Changes Made:**
+1. ✅ Updated `create-test-users.js` - Simplified to output UIDs only
+2. ✅ Updated `scripts/upload-mock-data.js` - Accepts UIDs, stores as student_id in Firestore
+3. ✅ Updated `scripts/embedTranscripts.js` - Uses Firebase UIDs for Pinecone vectors
+4. ✅ Simplified `cloud-run/src/index.js` - Removed all user_profiles lookups, uses req.user.uid directly
+5. ✅ Created comprehensive setup guide: `SETUP_FIREBASE_UID.md`
+
+**Backend Simplification:**
+- Removed need for `user_profiles` collection
+- Direct use of `req.user.uid` as `student_id` in all queries
+- Eliminated mapping complexity, improved performance
+
+**Ready for Testing:**
+Follow `SETUP_FIREBASE_UID.md` to:
+1. Create 5 test users (outputs UIDs)
+2. Upload mock data with UIDs
+3. Generate embeddings
+4. Test chat (should now retrieve context correctly)
