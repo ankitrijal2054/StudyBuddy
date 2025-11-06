@@ -21,6 +21,7 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
+  const [studentProfile, setStudentProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const register = async (email, password, name) => {
@@ -49,9 +50,46 @@ export const AuthProvider = ({ children }) => {
     return await signOut(auth);
   };
 
+  /**
+   * Fetch student profile linked to this auth user
+   */
+  const fetchStudentProfile = async (uid) => {
+    try {
+      // Query user_profiles to find student_id
+      const userProfileDoc = await getDoc(doc(db, "user_profiles", uid));
+
+      if (userProfileDoc.exists()) {
+        const { student_id } = userProfileDoc.data();
+
+        // Query students collection using student_id
+        const studentDoc = await getDoc(doc(db, "students", student_id));
+
+        if (studentDoc.exists()) {
+          setStudentProfile({
+            ...studentDoc.data(),
+            auth_uid: uid,
+          });
+          return studentDoc.data();
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching student profile:", error);
+    }
+    return null;
+  };
+
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
+
+      if (user) {
+        // When user logs in, fetch their student profile
+        await fetchStudentProfile(user.uid);
+      } else {
+        // When user logs out, clear student profile
+        setStudentProfile(null);
+      }
+
       setLoading(false);
     });
 
@@ -60,6 +98,7 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     currentUser,
+    studentProfile,
     register,
     login,
     logout,
