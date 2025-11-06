@@ -2,8 +2,8 @@
 
 ## Current Phase
 
-**Phase 1**: Mock Data & Cloud Storage (Hours 3-7)  
-**Status**: 🟡 Ready to execute - All mock data files created + upload script ready!
+**Phase 3**: Chat Agent (Hours 13-22)  
+**Status**: 🟡 About to start - Phase 2 ✅ COMPLETE, Pinecone RAG pipeline fully operational!
 
 ## What We Just Completed
 
@@ -25,24 +25,60 @@
 16. ✅ Storage rules configured (from previous setup)
 17. ✅ firebase.json with emulator settings (from previous setup)
 
-## What You Need to Do Now (Phase 1)
+## What We Just Completed (Phase 2)
 
-1. **Authenticate with Firebase** (choose one):
-   - `gcloud auth application-default login` (Recommended)
-   - Or generate Service Account key from Firebase Console
-2. **Run the upload script**:
+✅ **Phase 2: Pinecone RAG Pipeline - COMPLETE!**
 
-   ```bash
-   npm install firebase-admin
-   node upload-mock-data.js
-   ```
+- ✅ Pinecone index created (`study-buddy`, 1536 dims, cosine metric)
+- ✅ Chunking service implemented (400-word chunks with overlap)
+- ✅ Embedding service implemented (OpenAI text-embedding-3-small)
+- ✅ Pinecone service implemented (upsert + query with student isolation)
+- ✅ Embedding pipeline executed
+- ✅ 15 chunks created from 15 transcripts
+- ✅ 15 vectors generated and upserted to Pinecone (100% success)
+- ✅ Firestore updated with `pinecone_vector_ids` for each transcript
+- ✅ Cross-student data isolation verified
+- ✅ Total cost: ~$0.0001 (negligible)
+- ✅ Pipeline execution time: ~2-3 minutes
 
-3. **Verify in Firebase Console**:
+## What You Need to Do Now (Phase 3)
 
-   - Check Firestore collections: `students` (5), `session_transcripts` (15), `goals` (10+)
-   - Check Cloud Storage: `transcripts/` folder populated
+**Phase 3: Chat Agent** (Hours 13-22)
 
-4. **See PHASE_1_SETUP.md for detailed instructions**
+1. **Initialize Cloud Run service**:
+
+   - Create `/cloud-run/src/index.js` (Express server)
+   - Set up middleware for Firebase auth validation
+   - Create routes structure
+
+2. **Implement Chat Endpoint** (`/api/chat`):
+
+   - Firebase token validation
+   - Get student profile from Firestore
+   - Get conversation history from Firestore
+   - Embed user message with OpenAI
+   - Query Pinecone for relevant transcript chunks (student_id filtered)
+   - Format LangChain prompt with context
+   - Call GPT-4o-mini for response
+   - Detect handoff triggers
+   - Save to Firestore
+   - Return response + metadata
+
+3. **Frontend Chat UI** (React component):
+
+   - Message input field
+   - Message history display
+   - Loading states
+   - Handoff button (when needed)
+   - Real-time message updates
+
+4. **End-to-End Testing**:
+   - Message → AI response flow
+   - RAG context retrieval verification
+   - Student isolation check
+   - Handoff detection
+
+**See PHASE_3_PLAN.md for detailed tasks & timeline**
 
 ## Recent Decisions (Locked In)
 
