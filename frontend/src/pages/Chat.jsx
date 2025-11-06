@@ -6,7 +6,7 @@
  * - Get AI-powered responses with RAG context
  * - Discuss progress with the AI tutor
  *
- * No history - fresh conversation each session
+ * Shows personalized greeting on load with goal & session context
  */
 
 import { useState, useEffect, useRef } from "react";
@@ -30,6 +30,7 @@ export default function Chat() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [contextLoading, setContextLoading] = useState(true);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -38,10 +39,67 @@ export default function Chat() {
     }
   }, [currentUser, navigate]);
 
+  // Load initial greeting on mount
+  useEffect(() => {
+    if (currentUser) {
+      loadInitialGreeting();
+    }
+  }, [currentUser]);
+
   // Auto-scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  /**
+   * Load initial context and display greeting
+   */
+  const loadInitialGreeting = async () => {
+    try {
+      setContextLoading(true);
+      const idToken = await currentUser.getIdToken();
+
+      const response = await fetch(
+        `${import.meta.env.VITE_CLOUD_RUN_URL}/api/chat/initial-context`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${idToken}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to load context");
+      }
+
+      const data = await response.json();
+
+      // Add greeting as first message
+      const greetingMessage = {
+        role: "assistant",
+        content: data.greeting,
+        timestamp: new Date(),
+        isGreeting: true,
+      };
+
+      setMessages([greetingMessage]);
+    } catch (err) {
+      console.error("❌ Greeting error:", err);
+      // Fallback greeting if context loading fails
+      setMessages([
+        {
+          role: "assistant",
+          content: "👋 Hey there! What would you like to work on today?",
+          timestamp: new Date(),
+          isGreeting: true,
+        },
+      ]);
+    } finally {
+      setContextLoading(false);
+    }
+  };
 
   /**
    * Send message and get AI response
@@ -142,18 +200,29 @@ export default function Chat() {
             💬 Study Companion
           </h1>
           <p className="text-gray-600 text-sm">
-            Ask questions about your lessons and get instant answers
+            Personalized learning help powered by AI
           </p>
         </div>
 
         {/* Messages Container */}
         <Card className="flex-1 flex flex-col overflow-hidden shadow-lg">
           <CardHeader className="border-b bg-white">
-            <CardTitle className="text-lg">AI Learning Assistant</CardTitle>
+            <CardTitle className="text-lg">
+              {contextLoading ? "Loading your session..." : "Ready to help"}
+            </CardTitle>
           </CardHeader>
 
           <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
-            {messages.length === 0 ? (
+            {contextLoading ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <div className="text-4xl mb-4">⏳</div>
+                  <p className="text-gray-600">
+                    Loading your personalized greeting...
+                  </p>
+                </div>
+              </div>
+            ) : messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-gray-500">
                 <div className="text-6xl mb-4">🤖</div>
                 <p className="text-lg font-semibold">
@@ -175,10 +244,14 @@ export default function Chat() {
                     className={`max-w-md rounded-lg px-4 py-3 ${
                       msg.role === "user"
                         ? "bg-blue-500 text-white rounded-br-none"
+                        : msg.isGreeting
+                        ? "bg-gradient-to-r from-purple-100 to-blue-100 text-gray-900 rounded-bl-none border border-purple-200"
                         : "bg-gray-100 text-gray-900 rounded-bl-none"
                     }`}
                   >
-                    <p className="text-sm leading-relaxed">{msg.content}</p>
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                      {msg.content}
+                    </p>
                     {msg.metadata && (
                       <div className="text-xs mt-2 opacity-70 flex gap-2">
                         {msg.metadata.rag_enabled && (
@@ -214,12 +287,12 @@ export default function Chat() {
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Ask me anything..."
-              disabled={loading}
+              disabled={loading || contextLoading}
               className="flex-1"
             />
             <Button
               onClick={handleSendMessage}
-              disabled={loading || !input.trim()}
+              disabled={loading || contextLoading || !input.trim()}
               className="min-w-[100px]"
             >
               {loading ? "..." : "Send"}

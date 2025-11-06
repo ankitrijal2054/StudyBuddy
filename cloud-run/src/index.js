@@ -74,6 +74,83 @@ app.get("/health", (req, res) => {
 });
 
 // ============================================================================
+// DEBUG ENDPOINTS
+// ============================================================================
+
+/**
+ * GET /api/debug/student-data
+ * Debug endpoint: Show what student data exists in Firestore
+ */
+app.get("/api/debug/student-data", validateFirebaseToken, async (req, res) => {
+  try {
+    const studentId = req.user.uid;
+    console.log(`\n🔍 DEBUG: Checking data for student: ${studentId}`);
+
+    const db = admin.firestore();
+
+    // Check students collection
+    const studentDoc = await db.collection("students").doc(studentId).get();
+    console.log(
+      `   students/${studentId}:`,
+      studentDoc.exists ? "✅ EXISTS" : "❌ NOT FOUND"
+    );
+
+    // List ALL goals for this student
+    const goalsSnapshot = await db
+      .collection("goals")
+      .where("student_id", "==", studentId)
+      .get();
+    console.log(`   goals for ${studentId}:`, goalsSnapshot.size);
+
+    // List FIRST 5 goals in entire collection to see what student_ids exist
+    const allGoalsSnapshot = await db.collection("goals").limit(5).get();
+    console.log(`   \n   Sample goals in collection:`);
+    allGoalsSnapshot.docs.forEach((doc) => {
+      console.log(
+        `     - student_id: "${doc.data().student_id}", subject: "${
+          doc.data().subject
+        }"`
+      );
+    });
+
+    // List ALL session transcripts for this student
+    const sessionsSnapshot = await db
+      .collection("session_transcripts")
+      .where("student_id", "==", studentId)
+      .get();
+    console.log(
+      `   \n   session_transcripts for ${studentId}:`,
+      sessionsSnapshot.size
+    );
+
+    // List FIRST 5 sessions to see what student_ids exist
+    const allSessionsSnapshot = await db
+      .collection("session_transcripts")
+      .limit(5)
+      .get();
+    console.log(`   \n   Sample sessions in collection:`);
+    allSessionsSnapshot.docs.forEach((doc) => {
+      console.log(
+        `     - student_id: "${doc.data().student_id}", subject: "${
+          doc.data().subject
+        }"`
+      );
+    });
+
+    res.status(200).json({
+      currentUserId: studentId,
+      studentDocExists: studentDoc.exists,
+      goalsCount: goalsSnapshot.size,
+      sessionsCount: sessionsSnapshot.size,
+      message: "Check terminal for debug output",
+    });
+  } catch (error) {
+    console.error("❌ Debug error:", error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================================================
 // CHAT ENDPOINTS
 // ============================================================================
 
@@ -85,9 +162,9 @@ app.get("/health", (req, res) => {
 app.post("/api/chat", validateFirebaseToken, async (req, res) => {
   try {
     const { message } = req.body;
-    const studentId = req.user.uid;
+    const uid = req.user.uid;
 
-    console.log(`\n📨 Chat request from ${studentId}`);
+    console.log(`\n📨 Chat request from UID: ${uid}`);
 
     // Validate input
     if (
@@ -106,6 +183,22 @@ app.post("/api/chat", validateFirebaseToken, async (req, res) => {
         error: "Invalid Request",
         message: "Message too long (max 5000 characters)",
       });
+    }
+
+    // Get the mapped student_id from user_profiles
+    const db = admin.firestore();
+    let studentId = uid;
+    try {
+      const userProfileDoc = await db
+        .collection("user_profiles")
+        .doc(uid)
+        .get();
+      if (userProfileDoc.exists) {
+        studentId = userProfileDoc.data().student_id;
+        console.log(`   ✅ Found mapping: UID → student_id: ${studentId}`);
+      }
+    } catch (error) {
+      console.warn(`   Could not fetch user_profiles: ${error.message}`);
     }
 
     // Process chat (no history, no persistence)
@@ -130,6 +223,185 @@ app.post("/api/chat", validateFirebaseToken, async (req, res) => {
     });
   }
 });
+
+/**
+ * GET /api/chat/initial-context
+ * Get student context for greeting message on chat open
+ * Returns: name, current goal, progress, last session info
+ */
+app.get(
+  "/api/chat/initial-context",
+  validateFirebaseToken,
+  async (req, res) => {
+    try {
+      const uid = req.user.uid;
+      console.log(`📋 Loading initial context for UID: ${uid}`);
+
+      const db = admin.firestore();
+
+      // Try to get student_id mapping from user_profiles
+      let studentId = uid;
+      try {
+        const userProfileDoc = await db
+          .collection("user_profiles")
+          .doc(uid)
+          .get();
+        if (userProfileDoc.exists) {
+          studentId = userProfileDoc.data().student_id;
+          console.log(`   ✅ Found mapping: UID → student_id: ${studentId}`);
+        } else {
+          console.log(`   No user_profiles mapping, using UID as student_id`);
+        }
+      } catch (error) {
+        console.warn(`   Could not fetch user_profiles: ${error.message}`);
+      }
+
+      // Get student info - try both student_id formats
+      let studentDoc = await db.collection("students").doc(studentId).get();
+
+      // If not found with mapped ID, try with UID
+      if (!studentDoc.exists && studentId !== uid) {
+        console.log(`   Student not found with ${studentId}, trying ${uid}`);
+        studentDoc = await db.collection("students").doc(uid).get();
+      }
+
+      if (!studentDoc.exists) {
+        console.warn(`   ❌ Student not found (tried ${studentId} and ${uid})`);
+        return res.status(404).json({
+          error: "Student not found",
+        });
+      }
+
+      const student = studentDoc.data();
+      const name = student.name || "there";
+      console.log(`   ✅ Found student: ${name}`);
+
+      // Get current active goal (query all goals and filter client-side to avoid index requirement)
+      let currentGoal = null;
+      let goalProgress = 0;
+      try {
+        const goalsSnapshot = await db
+          .collection("goals")
+          .where("student_id", "==", studentId)
+          .get();
+
+        console.log(`   Found ${goalsSnapshot.size} goals for student`);
+
+        // Filter for active goals client-side
+        const activeGoals = goalsSnapshot.docs
+          .map((doc) => doc.data())
+          .filter((goal) => goal.status === "active" || !goal.status);
+
+        if (activeGoals.length > 0) {
+          currentGoal = activeGoals[0];
+
+          // Log all fields to see what's available
+          console.log(`   Goal fields:`, Object.keys(currentGoal));
+
+          // Try different progress field names
+          goalProgress =
+            currentGoal.progress ||
+            currentGoal.completion_percentage ||
+            currentGoal.percent_complete ||
+            0;
+
+          // Use correct field names: title, goal, subject (fallback order)
+          const goalName =
+            currentGoal.title ||
+            currentGoal.goal ||
+            currentGoal.subject ||
+            "your learning";
+          console.log(`   ✅ Using goal: ${goalName} (${goalProgress}%)`);
+        } else {
+          console.warn(`   No active goals found`);
+        }
+      } catch (error) {
+        console.warn(`   Could not fetch goals: ${error.message}`);
+      }
+
+      // Get last session transcripts (top 3 most recent)
+      let recentSessions = [];
+      try {
+        const sessionsSnapshot = await db
+          .collection("session_transcripts")
+          .where("student_id", "==", studentId)
+          .get();
+
+        console.log(`   Found ${sessionsSnapshot.size} session transcripts`);
+
+        // Sort by date client-side and take top 3
+        recentSessions = sessionsSnapshot.docs
+          .map((doc) => ({
+            subject: doc.data().subject,
+            topics: doc.data().topics || [],
+            date: doc.data().date,
+          }))
+          .sort((a, b) => {
+            const dateA = a.date?.toDate?.() || new Date(a.date);
+            const dateB = b.date?.toDate?.() || new Date(b.date);
+            return dateB - dateA;
+          })
+          .slice(0, 3);
+
+        console.log(`   ✅ Using ${recentSessions.length} recent sessions`);
+      } catch (error) {
+        console.warn(`   Could not fetch sessions: ${error.message}`);
+      }
+
+      // Generate greeting message
+      let greeting = `Hey ${name}! 👋 `;
+
+      if (recentSessions.length > 0) {
+        const lastSession = recentSessions[0];
+        greeting += `How was your recent session on ${lastSession.subject}? `;
+      }
+
+      if (currentGoal) {
+        // Use correct field names: title, goal, subject
+        const goalName =
+          currentGoal.title ||
+          currentGoal.goal ||
+          currentGoal.subject ||
+          "your learning";
+        greeting += `You're making great progress on **${goalName}** (${goalProgress}% complete). `;
+        greeting += `How can I help you today? `;
+
+        if (recentSessions.length > 0) {
+          const lastSession = recentSessions[0];
+          const topics =
+            lastSession.topics?.slice(0, 2).join(", ") || "the topics";
+          greeting += `Want to dive deeper into ${topics}?`;
+        }
+      } else {
+        greeting += `What would you like to work on today?`;
+      }
+
+      res.status(200).json({
+        greeting,
+        student: {
+          name,
+        },
+        currentGoal: currentGoal
+          ? {
+              subject: currentGoal.subject,
+              progress: goalProgress,
+            }
+          : null,
+        recentSessions: recentSessions.map((s) => ({
+          subject: s.subject,
+          topics: s.topics,
+        })),
+      });
+    } catch (error) {
+      console.error("❌ Initial Context Error:", error.message);
+
+      res.status(500).json({
+        error: "Failed to load context",
+        message: error.message,
+      });
+    }
+  }
+);
 
 /**
  * GET /api/chat/history
