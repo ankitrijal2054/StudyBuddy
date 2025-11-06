@@ -199,8 +199,8 @@ export default function Chat() {
   return (
     <>
       <Navbar />
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-slate-950 dark:via-slate-900 dark:to-purple-950">
-        <div className="max-w-4xl mx-auto h-[calc(100vh-64px)] flex flex-col p-4 md:p-6">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-slate-950 dark:via-slate-900 dark:to-purple-950 flex flex-col">
+        <div className="max-w-4xl mx-auto w-full flex-1 flex flex-col p-4 md:p-6">
           {/* Header */}
           <div className="mb-6 flex items-center justify-between animate-slide-down">
             <div className="flex items-center">

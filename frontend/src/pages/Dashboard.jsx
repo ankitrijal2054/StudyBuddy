@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/Navbar";
 import { TopicSelector } from "@/components/TopicSelector";
@@ -18,7 +18,17 @@ import {
 export default function Dashboard() {
   const { currentUser, logout, studentProfile } = useAuth();
   const navigate = useNavigate();
-  const [showTopicSelector, setShowTopicSelector] = useState(false);
+  const location = useLocation();
+  const [showTopicSelector, setShowTopicSelector] = useState(
+    location.state?.showTopicSelector || false
+  );
+
+  // Auto-open topic selector if navigated from navbar
+  useEffect(() => {
+    if (location.state?.showTopicSelector) {
+      setShowTopicSelector(true);
+    }
+  }, [location.state?.showTopicSelector]);
 
   const handleTopicSelected = (selectedGoal) => {
     setShowTopicSelector(false);

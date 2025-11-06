@@ -66,7 +66,9 @@ export function Navbar() {
               <MessageCircle className="w-4 h-4 mr-1" /> Chat
             </button>
             <button
-              onClick={() => navigate("/quiz")}
+              onClick={() =>
+                navigate("/dashboard", { state: { showTopicSelector: true } })
+              }
               className="px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors flex items-center"
             >
               <BookOpen className="w-4 h-4 mr-1" /> Quiz
@@ -149,7 +151,7 @@ export function Navbar() {
             </button>
             <button
               onClick={() => {
-                navigate("/quiz");
+                navigate("/dashboard", { state: { showTopicSelector: true } });
                 setIsOpen(false);
               }}
               className="block w-full text-left px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg mb-2"
