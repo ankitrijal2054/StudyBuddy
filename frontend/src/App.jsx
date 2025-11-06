@@ -9,6 +9,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Chat from "./pages/Chat";
+import Quiz from "./pages/Quiz";
 
 function PrivateRoute({ children }) {
   const { currentUser, loading } = useAuth();
@@ -71,6 +72,14 @@ function App() {
           element={
             <PrivateRoute>
               <Chat />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/quiz"
+          element={
+            <PrivateRoute>
+              <Quiz />
             </PrivateRoute>
           }
         />

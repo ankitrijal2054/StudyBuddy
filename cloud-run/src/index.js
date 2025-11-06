@@ -21,6 +21,8 @@ const { validateFirebaseToken } = require("./middleware/auth");
 
 // Services
 const ChatService = require("./services/chatService");
+const { generateQuiz } = require("./services/quizService");
+const { submitQuiz } = require("./services/quizGradingService");
 
 // Initialize Firebase Admin SDK
 try {
@@ -415,31 +417,138 @@ app.get("/api/chat/history", validateFirebaseToken, async (req, res) => {
 });
 
 // ============================================================================
-// QUIZ ENDPOINTS (Placeholder for Phase 4)
+// QUIZ ENDPOINTS (Phase 4)
 // ============================================================================
 
 /**
  * POST /api/quiz/generate
- * Generate adaptive quiz for a subject
- * [PHASE 4 - Not yet implemented]
+ * Generate adaptive quiz for a specific goal
+ * Body: { goal_id, num_questions? }
  */
 app.post("/api/quiz/generate", validateFirebaseToken, async (req, res) => {
-  res.status(501).json({
-    error: "Not Implemented",
-    message: "Quiz generation coming in Phase 4",
-  });
+  try {
+    const { goal_id, num_questions = 5 } = req.body;
+    const studentId = req.user.uid;
+
+    console.log(`\n📝 Quiz generation request from student: ${studentId}`);
+
+    // Validate input
+    if (!goal_id) {
+      return res.status(400).json({
+        error: "Invalid Request",
+        message: "goal_id is required",
+      });
+    }
+
+    if (num_questions < 1 || num_questions > 20) {
+      return res.status(400).json({
+        error: "Invalid Request",
+        message: "num_questions must be between 1 and 20",
+      });
+    }
+
+    // Generate quiz
+    const quiz = await generateQuiz(studentId, goal_id, num_questions);
+
+    res.status(200).json({
+      success: true,
+      quiz: quiz,
+    });
+  } catch (error) {
+    console.error("❌ Quiz Generation Error:", error.message);
+
+    res.status(500).json({
+      error: "Quiz Generation Failed",
+      message: error.message,
+    });
+  }
 });
 
 /**
  * POST /api/quiz/submit
  * Submit quiz answers and get grade
- * [PHASE 4 - Not yet implemented]
+ * Body: { quiz_id, answers: { question_id: "selected_answer" } }
  */
 app.post("/api/quiz/submit", validateFirebaseToken, async (req, res) => {
-  res.status(501).json({
-    error: "Not Implemented",
-    message: "Quiz submission coming in Phase 4",
-  });
+  try {
+    const { quiz_id, answers } = req.body;
+    const studentId = req.user.uid;
+
+    console.log(`\n✅ Quiz submission from student: ${studentId}`);
+
+    // Validate input
+    if (!quiz_id) {
+      return res.status(400).json({
+        error: "Invalid Request",
+        message: "quiz_id is required",
+      });
+    }
+
+    if (!answers || typeof answers !== "object") {
+      return res.status(400).json({
+        error: "Invalid Request",
+        message: "answers object is required",
+      });
+    }
+
+    // Submit and grade quiz
+    const result = await submitQuiz(quiz_id, studentId, answers);
+
+    res.status(200).json({
+      success: true,
+      result: result,
+    });
+  } catch (error) {
+    console.error("❌ Quiz Submission Error:", error.message);
+
+    res.status(500).json({
+      error: "Quiz Submission Failed",
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/quiz/:quizId
+ * Get a specific quiz by ID
+ */
+app.get("/api/quiz/:quizId", validateFirebaseToken, async (req, res) => {
+  try {
+    const { quizId } = req.params;
+    const studentId = req.user.uid;
+
+    const db = admin.firestore();
+    const quizDoc = await db.collection("quizzes").doc(quizId).get();
+
+    if (!quizDoc.exists) {
+      return res.status(404).json({
+        error: "Not Found",
+        message: `Quiz not found: ${quizId}`,
+      });
+    }
+
+    const quiz = quizDoc.data();
+
+    // Verify student owns this quiz
+    if (quiz.student_id !== studentId) {
+      return res.status(403).json({
+        error: "Forbidden",
+        message: "You do not have access to this quiz",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      quiz: quiz,
+    });
+  } catch (error) {
+    console.error("❌ Quiz Fetch Error:", error.message);
+
+    res.status(500).json({
+      error: "Failed to fetch quiz",
+      message: error.message,
+    });
+  }
 });
 
 // ============================================================================
@@ -478,4 +587,7 @@ app.listen(PORT, () => {
   console.log(`   Health Check: http://localhost:${PORT}/health\n`);
 });
 
+// Export for use in other modules
 module.exports = app;
+module.exports.admin = admin;
+module.exports.db = admin.firestore();

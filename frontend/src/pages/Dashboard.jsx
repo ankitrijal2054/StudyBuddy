@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -9,10 +9,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { TopicSelector } from "@/components/TopicSelector";
 
 export default function Dashboard() {
   const { currentUser, logout, studentProfile } = useAuth();
   const navigate = useNavigate();
+  const [showTopicSelector, setShowTopicSelector] = useState(false);
 
   const handleLogout = async () => {
     try {
@@ -21,6 +23,14 @@ export default function Dashboard() {
     } catch (error) {
       console.error("Logout error:", error);
     }
+  };
+
+  const handleTopicSelected = (selectedGoal) => {
+    setShowTopicSelector(false);
+    // Navigate to quiz page with goal_id
+    navigate("/quiz", {
+      state: { goalId: selectedGoal.id, goal: selectedGoal },
+    });
   };
 
   // Handle loading state
@@ -54,7 +64,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <Card
             className="bg-blue-50 border-blue-200 cursor-pointer hover:shadow-lg transition-shadow"
             onClick={() => navigate("/chat")}
@@ -69,6 +79,23 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <Button className="w-full">Start Chatting</Button>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-green-50 border-green-200 cursor-pointer hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <CardTitle className="text-2xl">📝 Take a Quiz</CardTitle>
+              <CardDescription>
+                Test your knowledge and complete goals
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                className="w-full"
+                onClick={() => setShowTopicSelector(true)}
+              >
+                Start Quiz
+              </Button>
             </CardContent>
           </Card>
 
@@ -121,6 +148,12 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
+
+        <TopicSelector
+          isOpen={showTopicSelector}
+          onSelect={handleTopicSelected}
+          onClose={() => setShowTopicSelector(false)}
+        />
       </div>
     </div>
   );
