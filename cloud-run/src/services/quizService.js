@@ -154,12 +154,19 @@ Do NOT include any text before or after the JSON.`;
 
     // Parse the response
     let quizData;
-    const content = response.choices[0].message.content.trim();
+    let content = response.choices[0].message.content.trim();
+
+    // Handle markdown code blocks (```json ... ```)
+    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch) {
+      content = jsonMatch[1].trim();
+    }
 
     try {
       quizData = JSON.parse(content);
     } catch (parseError) {
       console.error("Failed to parse GPT response:", content);
+      console.error("Parse error details:", parseError.message);
       throw new Error("Failed to parse quiz from LLM response");
     }
 
