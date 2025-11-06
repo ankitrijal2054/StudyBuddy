@@ -1,4 +1,3 @@
-const { admin, db } = require("../index");
 const { Timestamp } = require("firebase-admin/firestore");
 
 /**
@@ -7,10 +6,15 @@ const { Timestamp } = require("firebase-admin/firestore");
  * @param {string} quizId - Quiz document ID
  * @param {string} studentId - Firebase UID
  * @param {Object} answers - { questionId: "selected_answer" }
+ * @param {Object} db - Firestore database instance
  * @returns {Object} Grade results with score, feedback, and goal completion status
  */
-async function submitQuiz(quizId, studentId, answers) {
+async function submitQuiz(quizId, studentId, answers, db) {
   try {
+    if (!db) {
+      throw new Error("Firestore database instance is required");
+    }
+
     // Get quiz from Firestore
     const quizDoc = await db.collection("quizzes").doc(quizId).get();
     if (!quizDoc.exists) {
@@ -79,7 +83,8 @@ async function submitQuiz(quizId, studentId, answers) {
         studentId,
         quiz.goal_id,
         quiz.subject,
-        score
+        score,
+        db
       );
     }
 
@@ -109,10 +114,15 @@ async function submitQuiz(quizId, studentId, answers) {
  * @param {string} goalId - Goal document ID
  * @param {string} subject - Subject name
  * @param {number} score - Quiz score
+ * @param {Object} db - Firestore database instance
  * @returns {Object} Goal completion data
  */
-async function completeGoal(studentId, goalId, subject, score) {
+async function completeGoal(studentId, goalId, subject, score, db) {
   try {
+    if (!db) {
+      throw new Error("Firestore database instance is required");
+    }
+
     // Get goal
     const goalDoc = await db.collection("goals").doc(goalId).get();
     if (!goalDoc.exists) {

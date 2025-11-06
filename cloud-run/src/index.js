@@ -448,7 +448,8 @@ app.post("/api/quiz/generate", validateFirebaseToken, async (req, res) => {
     }
 
     // Generate quiz
-    const quiz = await generateQuiz(studentId, goal_id, num_questions);
+    const db = admin.firestore();
+    const quiz = await generateQuiz(studentId, goal_id, num_questions, db);
 
     res.status(200).json({
       success: true,
@@ -492,7 +493,8 @@ app.post("/api/quiz/submit", validateFirebaseToken, async (req, res) => {
     }
 
     // Submit and grade quiz
-    const result = await submitQuiz(quiz_id, studentId, answers);
+    const db = admin.firestore();
+    const result = await submitQuiz(quiz_id, studentId, answers, db);
 
     res.status(200).json({
       success: true,
@@ -587,7 +589,4 @@ app.listen(PORT, () => {
   console.log(`   Health Check: http://localhost:${PORT}/health\n`);
 });
 
-// Export for use in other modules
 module.exports = app;
-module.exports.admin = admin;
-module.exports.db = admin.firestore();

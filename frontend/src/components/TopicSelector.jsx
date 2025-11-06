@@ -92,9 +92,9 @@ export const TopicSelector = ({ isOpen, onSelect, onClose }) => {
                 <CardContent className="space-y-2">
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>Progress</span>
-                    <span>{Math.round((goal.progress || 0) * 100)}%</span>
+                    <span>{Math.round(goal.progress || 0)}%</span>
                   </div>
-                  <Progress value={(goal.progress || 0) * 100} />
+                  <Progress value={goal.progress || 0} />
                 </CardContent>
               </Card>
             ))

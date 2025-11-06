@@ -1,5 +1,4 @@
 const { OpenAI } = require("openai");
-const { admin, db } = require("../index");
 const { queryPinecone } = require("./pineconeService");
 
 const openai = new OpenAI({
@@ -13,10 +12,15 @@ const openai = new OpenAI({
  * @param {string} studentId - Firebase UID
  * @param {string} goalId - Goal document ID
  * @param {number} numQuestions - Number of questions (default 5)
+ * @param {Object} db - Firestore database instance
  * @returns {Object} Generated quiz with questions and metadata
  */
-async function generateQuiz(studentId, goalId, numQuestions = 5) {
+async function generateQuiz(studentId, goalId, numQuestions = 5, db) {
   try {
+    if (!db) {
+      throw new Error("Firestore database instance is required");
+    }
+
     // Get goal details
     const goalDoc = await db.collection("goals").doc(goalId).get();
     if (!goalDoc.exists) {
@@ -24,8 +28,20 @@ async function generateQuiz(studentId, goalId, numQuestions = 5) {
     }
 
     const goal = goalDoc.data();
-    const subject = goal.subject;
-    const title = goal.title;
+    let subject = goal.subject;
+    const title = goal.title || goal.goal;
+
+    // If subject is not in goal, extract from title (e.g., "SAT Math: Algebra" → "SAT Math")
+    if (!subject && title) {
+      const parts = title.split(":");
+      subject = parts[0].trim();
+    }
+
+    if (!subject) {
+      throw new Error(
+        `Cannot determine subject from goal: ${JSON.stringify(goal)}`
+      );
+    }
 
     console.log(`Generating quiz for ${subject}: ${title}`);
 
