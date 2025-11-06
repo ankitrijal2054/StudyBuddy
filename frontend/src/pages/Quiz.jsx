@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { Navbar } from "@/components/Navbar";
 import {
   Card,
   CardContent,
@@ -12,6 +13,16 @@ import {
 import { GoalCompletionModal } from "@/components/GoalCompletionModal";
 import { getAuth } from "firebase/auth";
 import toast from "react-hot-toast";
+import {
+  ArrowLeft,
+  BookOpen,
+  Zap,
+  Award,
+  CheckCircle,
+  XCircle,
+  Target,
+  BarChart3,
+} from "lucide-react";
 
 export default function Quiz() {
   const location = useLocation();
@@ -36,7 +47,7 @@ export default function Quiz() {
   useEffect(() => {
     if (!goalId) {
       toast.error("Please select a topic first");
-      navigate("/");
+      navigate("/dashboard");
       return;
     }
   }, [goalId, navigate]);
@@ -78,7 +89,7 @@ export default function Quiz() {
       } catch (error) {
         console.error("Quiz generation error:", error);
         toast.error("Failed to generate quiz: " + error.message);
-        navigate("/");
+        navigate("/dashboard");
       } finally {
         setLoading(false);
       }
@@ -163,231 +174,358 @@ export default function Quiz() {
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Card className="w-96">
-          <CardHeader>
-            <CardTitle>📝 Generating Your Quiz...</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex justify-center items-center py-8">
-              <div className="animate-spin text-2xl">⏳</div>
+      <>
+        <Navbar />
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center p-4">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pulse">
+              <BookOpen className="w-8 h-8 text-white" />
             </div>
-            <p className="text-center text-muted-foreground">
-              We're creating a personalized quiz based on your lessons...
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              Generating Your Quiz
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-8">
+              Creating a personalized quiz based on your lessons...
             </p>
-          </CardContent>
-        </Card>
-      </div>
+            <div className="flex justify-center gap-2">
+              <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"></div>
+              <div
+                className="w-2 h-2 bg-purple-600 rounded-full animate-bounce"
+                style={{ animationDelay: "0.1s" }}
+              ></div>
+              <div
+                className="w-2 h-2 bg-pink-600 rounded-full animate-bounce"
+                style={{ animationDelay: "0.2s" }}
+              ></div>
+            </div>
+          </div>
+        </div>
+      </>
     );
   }
 
   // Error state - no quiz generated
   if (!quiz) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Card className="w-96">
-          <CardHeader>
-            <CardTitle>❌ Error</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p>Failed to generate quiz. Please try again.</p>
-            <Button className="w-full mt-4" onClick={() => navigate("/")}>
-              Go Back
+      <>
+        <Navbar />
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center p-4">
+          <div className="text-center max-w-sm">
+            <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <XCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              Oops! Quiz Generation Failed
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              We couldn't create a quiz for you. Please try again or select a
+              different topic.
+            </p>
+            <Button
+              onClick={() => navigate("/dashboard")}
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+            >
+              Back to Dashboard
             </Button>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </div>
+      </>
     );
   }
 
   // Results view
   if (result) {
+    const passed = result.score >= 85;
+
     return (
-      <div className="min-h-screen bg-background p-8">
-        <div className="container mx-auto max-w-4xl">
-          <Button
-            variant="outline"
-            onClick={() => navigate("/")}
-            className="mb-6"
-          >
-            ← Back to Dashboard
-          </Button>
-
-          <Card
-            className={`mb-6 ${
-              result.score >= 85
-                ? "border-green-500 bg-green-50"
-                : "border-yellow-500 bg-yellow-50"
-            }`}
-          >
-            <CardHeader>
-              <CardTitle className="text-3xl">📊 Quiz Results</CardTitle>
-              <CardDescription>
-                {result.subject}: {result.title}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <p className="text-sm text-muted-foreground mb-2">Score</p>
-                  <p className="text-4xl font-bold">{result.score}%</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground mb-2">
-                    Questions
-                  </p>
-                  <p className="text-4xl font-bold">
-                    {result.correct_count}/{result.total_count}
-                  </p>
-                </div>
-              </div>
-
-              {result.goal_completed && (
-                <div className="mt-6 p-4 bg-green-100 border-2 border-green-500 rounded-lg">
-                  <p className="text-green-800 font-bold text-lg">
-                    ✅ Goal Completed! You scored {result.score}%!
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <div className="space-y-4">
-            <h3 className="text-xl font-bold">Question Review</h3>
-            {result.question_results.map((q, idx) => (
-              <Card
-                key={idx}
-                className={`${
-                  q.is_correct
-                    ? "border-green-500 bg-green-50"
-                    : "border-red-500 bg-red-50"
-                }`}
-              >
-                <CardHeader>
-                  <CardTitle className="text-base">
-                    {q.is_correct ? "✅" : "❌"} {q.question_text}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <div>
-                    <p className="text-sm font-semibold">Your answer:</p>
-                    <p
-                      className={
-                        q.is_correct ? "text-green-700" : "text-red-700"
-                      }
-                    >
-                      {q.student_answer}
-                    </p>
-                  </div>
-                  {!q.is_correct && (
-                    <div>
-                      <p className="text-sm font-semibold">Correct answer:</p>
-                      <p className="text-green-700">{q.correct_answer}</p>
-                    </div>
-                  )}
-                  <div>
-                    <p className="text-sm font-semibold">Explanation:</p>
-                    <p className="text-muted-foreground text-sm">
-                      {q.explanation}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          <div className="flex gap-4 mt-8">
-            <Button className="flex-1" onClick={() => navigate("/")}>
+      <>
+        <Navbar />
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-slate-950 dark:via-slate-900 dark:to-purple-950 p-4 md:p-8">
+          <div className="max-w-4xl mx-auto">
+            <Button
+              variant="outline"
+              onClick={() => navigate("/dashboard")}
+              className="mb-6 flex items-center gap-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
               Back to Dashboard
             </Button>
-            {result.goal_completed && (
-              <Button
-                className="flex-1"
-                variant="default"
-                onClick={() => navigate("/recommendations")}
-              >
-                See Recommendations →
-              </Button>
-            )}
-          </div>
-        </div>
 
-        <GoalCompletionModal
-          isOpen={showCompletion}
-          score={result.score}
-          goalTitle={result.title}
-          subject={result.subject}
-          onClose={() => setShowCompletion(false)}
-          onViewRecommendations={() => {
-            setShowCompletion(false);
-            navigate("/recommendations");
-          }}
-        />
-      </div>
+            {/* Score Card */}
+            <div
+              className={`mb-8 rounded-2xl overflow-hidden border-2 ${
+                passed
+                  ? "border-green-200 dark:border-green-700 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20"
+                  : "border-yellow-200 dark:border-yellow-700 bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20"
+              }`}
+            >
+              <div className="p-8">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                      Quiz Results
+                    </h2>
+                    <p className="text-gray-600 dark:text-gray-400">
+                      {result.subject}: {result.title}
+                    </p>
+                  </div>
+                  <div
+                    className={`w-20 h-20 rounded-2xl flex items-center justify-center ${
+                      passed
+                        ? "bg-gradient-to-br from-green-600 to-emerald-600"
+                        : "bg-gradient-to-br from-yellow-600 to-amber-600"
+                    }`}
+                  >
+                    <span className="text-4xl font-bold text-white">
+                      {result.score}%
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-6 mb-6">
+                  <div className="bg-white dark:bg-slate-800 rounded-xl p-4">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2 flex items-center gap-2">
+                      <BarChart3 className="w-4 h-4" />
+                      Correct Answers
+                    </p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {result.correct_count}/{result.total_count}
+                    </p>
+                  </div>
+                  <div className="bg-white dark:bg-slate-800 rounded-xl p-4">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2 flex items-center gap-2">
+                      <Target className="w-4 h-4" />
+                      Passing Score
+                    </p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {passed ? "✅ Passed" : "⚠️ Try Again"}
+                    </p>
+                  </div>
+                </div>
+
+                {result.goal_completed && (
+                  <div className="bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 border-2 border-green-400 dark:border-green-600 rounded-xl p-4">
+                    <p className="text-green-800 dark:text-green-200 font-bold text-lg flex items-center gap-2">
+                      <CheckCircle className="w-6 h-6" />
+                      🎉 Goal Completed! Excellent work!
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Question Review */}
+            <div className="mb-8">
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
+                <BarChart3 className="w-6 h-6 text-blue-600" />
+                Question Review
+              </h3>
+              <div className="space-y-4">
+                {result.question_results.map((q, idx) => (
+                  <Card
+                    key={idx}
+                    className={`border-2 ${
+                      q.is_correct
+                        ? "border-green-200 bg-green-50 dark:border-green-700 dark:bg-green-900/10"
+                        : "border-red-200 bg-red-50 dark:border-red-700 dark:bg-red-900/10"
+                    }`}
+                  >
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <CardTitle className="text-base flex items-center gap-2">
+                            {q.is_correct ? (
+                              <CheckCircle className="w-5 h-5 text-green-600" />
+                            ) : (
+                              <XCircle className="w-5 h-5 text-red-600" />
+                            )}
+                            {q.question_text}
+                          </CardTitle>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="bg-white dark:bg-slate-800 rounded-lg p-4">
+                        <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                          Your Answer:
+                        </p>
+                        <p
+                          className={
+                            q.is_correct
+                              ? "text-green-700 dark:text-green-400 font-medium"
+                              : "text-red-700 dark:text-red-400 font-medium"
+                          }
+                        >
+                          {q.student_answer}
+                        </p>
+                      </div>
+
+                      {!q.is_correct && (
+                        <div className="bg-white dark:bg-slate-800 rounded-lg p-4">
+                          <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                            Correct Answer:
+                          </p>
+                          <p className="text-green-700 dark:text-green-400 font-medium">
+                            {q.correct_answer}
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
+                        <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                          <Zap className="w-4 h-4 text-blue-600" />
+                          Explanation
+                        </p>
+                        <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">
+                          {q.explanation}
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-4">
+              <Button
+                onClick={() => navigate("/dashboard")}
+                className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-3"
+              >
+                Back to Dashboard
+              </Button>
+              {result.goal_completed && (
+                <Button
+                  onClick={() => navigate("/recommendations")}
+                  className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3"
+                >
+                  View Recommendations →
+                </Button>
+              )}
+            </div>
+          </div>
+
+          <GoalCompletionModal
+            isOpen={showCompletion}
+            score={result.score}
+            goalTitle={result.title}
+            subject={result.subject}
+            onClose={() => setShowCompletion(false)}
+            onViewRecommendations={() => {
+              setShowCompletion(false);
+              navigate("/recommendations");
+            }}
+          />
+        </div>
+      </>
     );
   }
 
   // Quiz taking view
   return (
-    <div className="min-h-screen bg-background p-8">
-      <div className="container mx-auto max-w-4xl">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold">{quiz.subject}</h1>
-            <p className="text-muted-foreground">{quiz.title}</p>
-          </div>
-          <Button variant="outline" onClick={() => navigate("/")}>
-            Exit Quiz
-          </Button>
-        </div>
-
-        <Card className="mb-6 bg-blue-50 border-blue-200">
-          <CardContent className="pt-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="text-sm text-muted-foreground">Difficulty</p>
-                <p className="font-semibold capitalize">{quiz.difficulty}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Questions</p>
-                <p className="font-semibold">{quiz.num_questions}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Answered</p>
-                <p className="font-semibold">
-                  {Object.keys(answers).length}/{quiz.num_questions}
-                </p>
-              </div>
+    <>
+      <Navbar />
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-slate-950 dark:via-slate-900 dark:to-purple-950 p-4 md:p-8">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex justify-between items-center mb-8">
+            <div className="flex items-center gap-4">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setShowAllQuestions(!showAllQuestions)}
+                onClick={() => navigate("/dashboard")}
               >
-                {showAllQuestions ? "Single View" : "All Questions"}
+                <ArrowLeft className="w-4 h-4" />
               </Button>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <BookOpen className="w-8 h-8 text-blue-600" />
+                  {quiz.subject}
+                </h1>
+                <p className="text-gray-600 dark:text-gray-400">{quiz.title}</p>
+              </div>
             </div>
-          </CardContent>
-        </Card>
-
-        {showAllQuestions ? (
-          // All questions at once
-          <div className="space-y-6">
-            {quiz.questions.map((q, idx) => (
-              <QuestionCard
-                key={idx}
-                question={q}
-                questionNumber={idx + 1}
-                selected={answers[q.id] || answers[idx]}
-                onSelect={(option) => handleSelectAnswer(q.id, option)}
-              />
-            ))}
+            <Button
+              variant="outline"
+              onClick={() => navigate("/dashboard")}
+              className="hidden sm:flex"
+            >
+              Exit Quiz
+            </Button>
           </div>
-        ) : (
-          // Single question view
-          <div className="mb-8">
-            <div className="mb-4">
-              <div className="flex justify-between items-center">
-                <h2 className="text-lg font-bold">
+
+          {/* Progress Bar & Info */}
+          <Card className="mb-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-slate-800 dark:to-slate-700 border-2 border-blue-200 dark:border-blue-700">
+            <CardContent className="pt-6">
+              <div className="space-y-4">
+                <div className="flex justify-between items-center mb-4">
+                  <div className="flex gap-6">
+                    <div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+                        Difficulty
+                      </p>
+                      <p className="text-lg font-bold text-gray-900 dark:text-white capitalize flex items-center gap-2 mt-1">
+                        <Zap className="w-4 h-4 text-yellow-500" />
+                        {quiz.difficulty}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+                        Questions
+                      </p>
+                      <p className="text-lg font-bold text-gray-900 dark:text-white mt-1">
+                        {quiz.num_questions}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+                        Progress
+                      </p>
+                      <p className="text-lg font-bold text-gray-900 dark:text-white mt-1">
+                        {Object.keys(answers).length}/{quiz.num_questions}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowAllQuestions(!showAllQuestions)}
+                  >
+                    {showAllQuestions ? "Single View" : "All Questions"}
+                  </Button>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="w-full bg-gray-300 dark:bg-slate-600 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-blue-600 to-purple-600 transition-all duration-300"
+                    style={{
+                      width: `${
+                        (Object.keys(answers).length / quiz.num_questions) * 100
+                      }%`,
+                    }}
+                  ></div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Questions */}
+          {showAllQuestions ? (
+            <div className="space-y-6">
+              {quiz.questions.map((q, idx) => (
+                <QuestionCard
+                  key={idx}
+                  question={q}
+                  questionNumber={idx + 1}
+                  selected={answers[q.id] || answers[idx]}
+                  onSelect={(option) => handleSelectAnswer(q.id, option)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="mb-8">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">
                   Question {currentQuestionIndex + 1} of {quiz.num_questions}
                 </h2>
                 <div className="flex gap-2">
@@ -422,58 +560,67 @@ export default function Quiz() {
                   </Button>
                 </div>
               </div>
+              <QuestionCard
+                question={quiz.questions[currentQuestionIndex]}
+                questionNumber={currentQuestionIndex + 1}
+                selected={
+                  answers[quiz.questions[currentQuestionIndex].id] ||
+                  answers[currentQuestionIndex]
+                }
+                onSelect={(option) =>
+                  handleSelectAnswer(
+                    quiz.questions[currentQuestionIndex].id,
+                    option
+                  )
+                }
+              />
             </div>
-            <QuestionCard
-              question={quiz.questions[currentQuestionIndex]}
-              questionNumber={currentQuestionIndex + 1}
-              selected={
-                answers[quiz.questions[currentQuestionIndex].id] ||
-                answers[currentQuestionIndex]
-              }
-              onSelect={(option) =>
-                handleSelectAnswer(
-                  quiz.questions[currentQuestionIndex].id,
-                  option
-                )
-              }
-            />
-          </div>
-        )}
+          )}
 
-        <Button
-          className="w-full py-6 text-lg"
-          onClick={handleSubmitQuiz}
-          disabled={!allAnswered || submitting}
-        >
-          {submitting ? "Submitting..." : "Submit Quiz"}
-        </Button>
+          {/* Submit Button */}
+          <Button
+            className="w-full py-6 text-lg bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold"
+            onClick={handleSubmitQuiz}
+            disabled={!allAnswered || submitting}
+          >
+            {submitting ? "Submitting..." : "Submit Quiz"}
+          </Button>
 
-        {!allAnswered && (
-          <p className="text-center text-muted-foreground mt-4">
-            Answer all questions to submit
-          </p>
-        )}
+          {!allAnswered && (
+            <p className="text-center text-gray-600 dark:text-gray-400 mt-4">
+              Answer all questions to submit
+            </p>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
 // Question Card Component
 function QuestionCard({ question, questionNumber, selected, onSelect }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">{question.question}</CardTitle>
-        <CardDescription>Question {questionNumber}</CardDescription>
+    <Card className="overflow-hidden border-2 border-gray-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-600 transition-colors">
+      <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-slate-800 dark:to-slate-700">
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <CardTitle className="text-lg text-gray-900 dark:text-white">
+              {question.question}
+            </CardTitle>
+          </div>
+          <span className="text-sm font-semibold bg-white dark:bg-slate-800 text-blue-600 px-3 py-1 rounded-full ml-4">
+            Q{questionNumber}
+          </span>
+        </div>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="pt-6 space-y-3">
         {Object.entries(question.options).map(([key, option]) => (
           <label
             key={key}
-            className={`flex items-center p-3 rounded-lg border-2 cursor-pointer transition-all ${
+            className={`flex items-start p-4 rounded-xl border-2 cursor-pointer transition-all ${
               selected === key
-                ? "border-primary bg-primary/10"
-                : "border-border hover:border-primary/50"
+                ? "border-blue-600 bg-blue-50 dark:bg-blue-900/20"
+                : "border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-blue-300 dark:hover:border-blue-500"
             }`}
             onClick={() => onSelect(key)}
           >
@@ -483,10 +630,16 @@ function QuestionCard({ question, questionNumber, selected, onSelect }) {
               value={key}
               checked={selected === key}
               onChange={() => onSelect(key)}
-              className="mr-3"
+              className="mt-1 mr-4 w-5 h-5 cursor-pointer"
             />
-            <span className="font-semibold mr-3">{key}.</span>
-            <span className="flex-1">{option}</span>
+            <div className="flex-1">
+              <span className="font-bold text-blue-600 dark:text-blue-400 mr-2">
+                {key}.
+              </span>
+              <span className="text-gray-900 dark:text-white font-medium">
+                {option}
+              </span>
+            </div>
           </label>
         ))}
       </CardContent>
