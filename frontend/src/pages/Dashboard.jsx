@@ -44,9 +44,43 @@ export default function Dashboard() {
       <div className="container mx-auto p-8">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold">Dashboard</h1>
-          <Button onClick={handleLogout} variant="outline">
-            Logout
-          </Button>
+          <div className="flex gap-4">
+            <Button onClick={() => navigate("/chat")} variant="default">
+              💬 Chat with AI
+            </Button>
+            <Button onClick={handleLogout} variant="outline">
+              Logout
+            </Button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <Card
+            className="bg-blue-50 border-blue-200 cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => navigate("/chat")}
+          >
+            <CardHeader>
+              <CardTitle className="text-2xl">
+                💬 Study Companion Chat
+              </CardTitle>
+              <CardDescription>
+                Ask questions about your lessons with AI-powered answers
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button className="w-full">Start Chatting</Button>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gray-50">
+            <CardHeader>
+              <CardTitle>📊 Your Progress</CardTitle>
+              <CardDescription>Track your learning journey</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-600">Coming soon...</p>
+            </CardContent>
+          </Card>
         </div>
 
         <Card>
