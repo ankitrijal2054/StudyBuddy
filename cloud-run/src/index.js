@@ -554,6 +554,78 @@ app.get("/api/quiz/:quizId", validateFirebaseToken, async (req, res) => {
 });
 
 // ============================================================================
+// RECOMMENDATIONS ENDPOINT (Phase 6)
+// ============================================================================
+
+/**
+ * POST /api/recommendations/generate
+ * Generate recommendations for a completed goal using GPT-4o-mini
+ * Body: { student_id, completed_goal_id, completed_subject, completed_goal }
+ * Internal endpoint (called by Cloud Function after goal completion)
+ */
+app.post("/api/recommendations/generate", async (req, res) => {
+  try {
+    const { student_id, completed_goal_id, completed_subject, completed_goal } =
+      req.body;
+
+    console.log(
+      `\n💡 Generating recommendations for student: ${student_id}, completed: ${completed_subject}`
+    );
+
+    // Validate internal request
+    if (req.headers["x-internal-request"] !== "true") {
+      // For now, allow without auth since this is called from Cloud Function
+      // In production, validate with service account
+    }
+
+    // Validate input
+    if (
+      !student_id ||
+      !completed_goal_id ||
+      !completed_subject ||
+      !completed_goal
+    ) {
+      return res.status(400).json({
+        error: "Invalid Request",
+        message:
+          "student_id, completed_goal_id, completed_subject, and completed_goal are required",
+      });
+    }
+
+    const db = admin.firestore();
+    const {
+      generateRecommendations,
+    } = require("./services/recommendationService");
+
+    // Generate recommendations (no storage needed, UI only)
+    const recommendations = await generateRecommendations(
+      student_id,
+      completed_goal_id,
+      completed_subject,
+      completed_goal,
+      db
+    );
+
+    console.log(
+      `   ✅ Recommendations generated (${recommendations.length} suggestions)`
+    );
+
+    res.status(200).json({
+      success: true,
+      recommendations_count: recommendations.length,
+      recommendations: recommendations,
+    });
+  } catch (error) {
+    console.error("❌ Recommendations Error:", error.message);
+
+    res.status(500).json({
+      error: "Recommendations Generation Failed",
+      message: error.message,
+    });
+  }
+});
+
+// ============================================================================
 // ERROR HANDLING
 // ============================================================================
 

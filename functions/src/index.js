@@ -62,6 +62,60 @@ exports.deleteUserProfile = functions.auth.user().onDelete(async (user) => {
   }
 });
 
+// Cloud Function: Generate recommendations on goal completion
+exports.generateRecommendations = functions.firestore
+  .document("goals/{goalId}")
+  .onUpdate(async (change, context) => {
+    try {
+      const before = change.before.data();
+      const after = change.after.data();
+
+      // Only trigger when goal transitions to completed
+      if (before.status !== "completed" && after.status === "completed") {
+        const goalId = context.params.goalId;
+        const studentId = after.student_id;
+        const completedSubject = after.subject;
+        const completedGoal = after.goal;
+
+        // Call Cloud Run to generate recommendations
+        const fetch = require("node-fetch");
+        const CLOUD_RUN_URL =
+          process.env.CLOUD_RUN_URL || "http://localhost:8080";
+
+        const response = await fetch(
+          `${CLOUD_RUN_URL}/api/recommendations/generate`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              // Use service account credentials for internal calls
+              "X-Internal-Request": "true",
+            },
+            body: JSON.stringify({
+              student_id: studentId,
+              completed_goal_id: goalId,
+              completed_subject: completedSubject,
+              completed_goal: completedGoal,
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            `Failed to generate recommendations: ${response.statusText}`
+          );
+        }
+
+        functions.logger.info(
+          `Recommendations generated for goal ${goalId} by student ${studentId}`
+        );
+      }
+    } catch (error) {
+      functions.logger.error(`Error generating recommendations: ${error}`);
+      // Don't throw - let the update succeed even if recommendations fail
+    }
+  });
+
 // Health check endpoint (if using Cloud Run, this can be added to Cloud Run)
 exports.healthCheck = functions.https.onRequest((request, response) => {
   response.json({ status: "ok", timestamp: new Date().toISOString() });
