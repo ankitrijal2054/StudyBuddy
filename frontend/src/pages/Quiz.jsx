@@ -38,7 +38,6 @@ export default function Quiz() {
   const [result, setResult] = useState(null);
   const [showCompletion, setShowCompletion] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [showAllQuestions, setShowAllQuestions] = useState(false);
 
   const goalId = location.state?.goalId;
   const goal = location.state?.goal;
@@ -425,9 +424,9 @@ export default function Quiz() {
   return (
     <>
       <Navbar />
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-slate-950 dark:via-slate-900 dark:to-purple-950 p-4 md:p-8">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex justify-between items-center mb-8">
+      <div className="h-[calc(100vh-64px)] bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-slate-950 dark:via-slate-900 dark:to-purple-950 flex flex-col overflow-hidden p-4 md:p-6">
+        <div className="max-w-4xl mx-auto w-full flex-1 flex flex-col overflow-hidden">
+          <div className="flex justify-between items-center mb-4 flex-shrink-0">
             <div className="flex items-center gap-4">
               <Button
                 variant="outline"
@@ -437,11 +436,13 @@ export default function Quiz() {
                 <ArrowLeft className="w-4 h-4" />
               </Button>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                  <BookOpen className="w-8 h-8 text-blue-600" />
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <BookOpen className="w-6 h-6 text-blue-600" />
                   {quiz.subject}
                 </h1>
-                <p className="text-gray-600 dark:text-gray-400">{quiz.title}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {quiz.title}
+                </p>
               </div>
             </div>
             <Button
@@ -454,48 +455,39 @@ export default function Quiz() {
           </div>
 
           {/* Progress Bar & Info */}
-          <Card className="mb-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-slate-800 dark:to-slate-700 border-2 border-blue-200 dark:border-blue-700">
-            <CardContent className="pt-6">
-              <div className="space-y-4">
-                <div className="flex justify-between items-center mb-4">
-                  <div className="flex gap-6">
-                    <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
-                        Difficulty
-                      </p>
-                      <p className="text-lg font-bold text-gray-900 dark:text-white capitalize flex items-center gap-2 mt-1">
-                        <Zap className="w-4 h-4 text-yellow-500" />
-                        {quiz.difficulty}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
-                        Questions
-                      </p>
-                      <p className="text-lg font-bold text-gray-900 dark:text-white mt-1">
-                        {quiz.num_questions}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
-                        Progress
-                      </p>
-                      <p className="text-lg font-bold text-gray-900 dark:text-white mt-1">
-                        {Object.keys(answers).length}/{quiz.num_questions}
-                      </p>
-                    </div>
+          <Card className="mb-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-slate-800 dark:to-slate-700 border-2 border-blue-200 dark:border-blue-700 flex-shrink-0">
+            <CardContent className="pt-4 pb-4">
+              <div className="space-y-2">
+                <div className="flex gap-4 text-sm">
+                  <div>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">
+                      Difficulty
+                    </p>
+                    <p className="font-bold text-gray-900 dark:text-white capitalize flex items-center gap-1 mt-0.5">
+                      <Zap className="w-3 h-3 text-yellow-500" />
+                      {quiz.difficulty}
+                    </p>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowAllQuestions(!showAllQuestions)}
-                  >
-                    {showAllQuestions ? "Single View" : "All Questions"}
-                  </Button>
+                  <div>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">
+                      Questions
+                    </p>
+                    <p className="font-bold text-gray-900 dark:text-white mt-0.5">
+                      {quiz.num_questions}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">
+                      Progress
+                    </p>
+                    <p className="font-bold text-gray-900 dark:text-white mt-0.5">
+                      {Object.keys(answers).length}/{quiz.num_questions}
+                    </p>
+                  </div>
                 </div>
 
                 {/* Progress Bar */}
-                <div className="w-full bg-gray-300 dark:bg-slate-600 rounded-full h-2 overflow-hidden">
+                <div className="w-full bg-gray-300 dark:bg-slate-600 rounded-full h-1.5 overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-blue-600 to-purple-600 transition-all duration-300"
                     style={{
@@ -509,57 +501,45 @@ export default function Quiz() {
             </CardContent>
           </Card>
 
-          {/* Questions */}
-          {showAllQuestions ? (
-            <div className="space-y-6">
-              {quiz.questions.map((q, idx) => (
-                <QuestionCard
-                  key={idx}
-                  question={q}
-                  questionNumber={idx + 1}
-                  selected={answers[q.id] || answers[idx]}
-                  onSelect={(option) => handleSelectAnswer(q.id, option)}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="mb-8">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                  Question {currentQuestionIndex + 1} of {quiz.num_questions}
-                </h2>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      setCurrentQuestionIndex(
-                        Math.max(0, currentQuestionIndex - 1)
+          {/* Single Question View */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex justify-between items-center mb-3 flex-shrink-0">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+                Q{currentQuestionIndex + 1}/{quiz.num_questions}
+              </h2>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setCurrentQuestionIndex(
+                      Math.max(0, currentQuestionIndex - 1)
+                    )
+                  }
+                  disabled={currentQuestionIndex === 0}
+                  className="text-xs h-8 px-2"
+                >
+                  ← Prev
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setCurrentQuestionIndex(
+                      Math.min(
+                        quiz.questions.length - 1,
+                        currentQuestionIndex + 1
                       )
-                    }
-                    disabled={currentQuestionIndex === 0}
-                  >
-                    ← Previous
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      setCurrentQuestionIndex(
-                        Math.min(
-                          quiz.questions.length - 1,
-                          currentQuestionIndex + 1
-                        )
-                      )
-                    }
-                    disabled={
-                      currentQuestionIndex === quiz.questions.length - 1
-                    }
-                  >
-                    Next →
-                  </Button>
-                </div>
+                    )
+                  }
+                  disabled={currentQuestionIndex === quiz.questions.length - 1}
+                  className="text-xs h-8 px-2"
+                >
+                  Next →
+                </Button>
               </div>
+            </div>
+            <div className="flex-1 overflow-y-auto">
               <QuestionCard
                 question={quiz.questions[currentQuestionIndex]}
                 questionNumber={currentQuestionIndex + 1}
@@ -575,22 +555,24 @@ export default function Quiz() {
                 }
               />
             </div>
-          )}
+          </div>
 
-          {/* Submit Button */}
-          <Button
-            className="w-full py-6 text-lg bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold"
-            onClick={handleSubmitQuiz}
-            disabled={!allAnswered || submitting}
-          >
-            {submitting ? "Submitting..." : "Submit Quiz"}
-          </Button>
+          {/* Submit Button Area */}
+          <div className="flex-shrink-0 space-y-1">
+            <Button
+              className="w-full py-3 text-base bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold"
+              onClick={handleSubmitQuiz}
+              disabled={!allAnswered || submitting}
+            >
+              {submitting ? "Submitting..." : "Submit Quiz"}
+            </Button>
 
-          {!allAnswered && (
-            <p className="text-center text-gray-600 dark:text-gray-400 mt-4">
-              Answer all questions to submit
-            </p>
-          )}
+            {!allAnswered && (
+              <p className="text-center text-xs text-gray-600 dark:text-gray-400">
+                Answer all questions to submit
+              </p>
+            )}
+          </div>
         </div>
       </div>
     </>
@@ -601,23 +583,23 @@ export default function Quiz() {
 function QuestionCard({ question, questionNumber, selected, onSelect }) {
   return (
     <Card className="overflow-hidden border-2 border-gray-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-600 transition-colors">
-      <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-slate-800 dark:to-slate-700">
+      <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-slate-800 dark:to-slate-700 py-3">
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <CardTitle className="text-lg text-gray-900 dark:text-white">
+            <CardTitle className="text-base text-gray-900 dark:text-white">
               {question.question}
             </CardTitle>
           </div>
-          <span className="text-sm font-semibold bg-white dark:bg-slate-800 text-blue-600 px-3 py-1 rounded-full ml-4">
+          <span className="text-xs font-semibold bg-white dark:bg-slate-800 text-blue-600 px-2 py-1 rounded-full ml-4 flex-shrink-0">
             Q{questionNumber}
           </span>
         </div>
       </CardHeader>
-      <CardContent className="pt-6 space-y-3">
+      <CardContent className="pt-4 pb-4 space-y-2">
         {Object.entries(question.options).map(([key, option]) => (
           <label
             key={key}
-            className={`flex items-start p-4 rounded-xl border-2 cursor-pointer transition-all ${
+            className={`flex items-start p-3 rounded-lg border-2 cursor-pointer transition-all ${
               selected === key
                 ? "border-blue-600 bg-blue-50 dark:bg-blue-900/20"
                 : "border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-blue-300 dark:hover:border-blue-500"
@@ -630,13 +612,13 @@ function QuestionCard({ question, questionNumber, selected, onSelect }) {
               value={key}
               checked={selected === key}
               onChange={() => onSelect(key)}
-              className="mt-1 mr-4 w-5 h-5 cursor-pointer"
+              className="mt-0.5 mr-3 w-4 h-4 cursor-pointer flex-shrink-0"
             />
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <span className="font-bold text-blue-600 dark:text-blue-400 mr-2">
                 {key}.
               </span>
-              <span className="text-gray-900 dark:text-white font-medium">
+              <span className="text-sm text-gray-900 dark:text-white font-medium">
                 {option}
               </span>
             </div>
