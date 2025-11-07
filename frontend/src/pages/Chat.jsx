@@ -199,10 +199,10 @@ export default function Chat() {
   return (
     <>
       <Navbar />
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-slate-950 dark:via-slate-900 dark:to-purple-950 flex flex-col">
-        <div className="max-w-4xl mx-auto w-full flex-1 flex flex-col p-4 md:p-6">
+      <div className="h-[calc(100vh-64px)] bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-slate-950 dark:via-slate-900 dark:to-purple-950 flex flex-col overflow-hidden">
+        <div className="max-w-4xl mx-auto w-full flex-1 flex flex-col p-4 md:p-6 overflow-hidden">
           {/* Header */}
-          <div className="mb-6 flex items-center justify-between animate-slide-down">
+          <div className="mb-6 flex items-center justify-between animate-slide-down flex-shrink-0">
             <div className="flex items-center">
               <button
                 onClick={() => navigate("/dashboard")}
@@ -317,7 +317,7 @@ export default function Chat() {
 
           {/* Error Alert */}
           {error && (
-            <div className="mb-4 p-4 bg-gradient-to-r from-yellow-50 to-amber-50 dark:from-yellow-900/30 dark:to-amber-900/30 border border-yellow-200 dark:border-yellow-700 rounded-xl text-sm text-yellow-800 dark:text-yellow-200 animate-slide-down">
+            <div className="p-4 bg-gradient-to-r from-yellow-50 to-amber-50 dark:from-yellow-900/30 dark:to-amber-900/30 border border-yellow-200 dark:border-yellow-700 rounded-xl text-sm text-yellow-800 dark:text-yellow-200 animate-slide-down flex-shrink-0">
               <div className="flex items-start">
                 <span className="mr-3 text-lg">💡</span>
                 <span>{error}</span>
@@ -326,7 +326,7 @@ export default function Chat() {
           )}
 
           {/* Input Area */}
-          <div className="space-y-3">
+          <div className="space-y-3 flex-shrink-0">
             <div className="flex gap-3">
               <div className="relative flex-1">
                 <Input
