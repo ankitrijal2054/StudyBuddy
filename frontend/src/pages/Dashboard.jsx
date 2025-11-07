@@ -38,7 +38,7 @@ import {
 } from "recharts";
 
 export default function Dashboard() {
-  const { currentUser, logout, studentProfile } = useAuth();
+  const { currentUser, studentProfile } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [showTopicSelector, setShowTopicSelector] = useState(
@@ -456,7 +456,11 @@ export default function Dashboard() {
                               <Button
                                 onClick={() =>
                                   navigate("/chat", {
-                                    state: { goalId: goal.id },
+                                    state: {
+                                      goalId: goal.id,
+                                      goal: goal,
+                                      subject: goal.subject,
+                                    },
                                   })
                                 }
                                 className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-sm"
@@ -464,7 +468,14 @@ export default function Dashboard() {
                                 Chat
                               </Button>
                               <Button
-                                onClick={() => setShowTopicSelector(true)}
+                                onClick={() =>
+                                  navigate("/quiz", {
+                                    state: {
+                                      goalId: goal.id,
+                                      goal: goal,
+                                    },
+                                  })
+                                }
                                 className="flex-1 bg-purple-600 hover:bg-purple-700 text-white text-sm"
                               >
                                 Quiz
@@ -570,7 +581,7 @@ export default function Dashboard() {
               </h2>
               <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden">
                 <div className="divide-y divide-gray-200 dark:divide-slate-700">
-                  {activityFeed.map((item, idx) => {
+                  {activityFeed.map((item) => {
                     const Icon = item.icon;
                     return (
                       <div
