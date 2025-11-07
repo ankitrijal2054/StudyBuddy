@@ -31,11 +31,46 @@ export default function Chat() {
   const navigate = useNavigate();
   const messagesEndRef = useRef(null);
 
-  const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState("");
+  const [messages, setMessages] = useState(() => {
+    // Try to load messages from localStorage on mount
+    try {
+      const saved = localStorage.getItem("chat_messages");
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.error("Failed to load chat messages:", e);
+      return [];
+    }
+  });
+  const [input, setInput] = useState(() => {
+    // Try to load input from localStorage on mount
+    try {
+      return localStorage.getItem("chat_input") || "";
+    } catch (e) {
+      console.error("Failed to load chat input:", e);
+      return "";
+    }
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [contextLoading, setContextLoading] = useState(true);
+
+  // Save messages to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem("chat_messages", JSON.stringify(messages));
+    } catch (e) {
+      console.error("Failed to save chat messages:", e);
+    }
+  }, [messages]);
+
+  // Save input to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem("chat_input", input);
+    } catch (e) {
+      console.error("Failed to save chat input:", e);
+    }
+  }, [input]);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -44,10 +79,15 @@ export default function Chat() {
     }
   }, [currentUser, navigate]);
 
-  // Load initial greeting on mount
+  // Load initial greeting on mount (only if no saved messages)
   useEffect(() => {
     if (currentUser) {
-      loadInitialGreeting();
+      // Only load greeting if there are no saved messages
+      if (messages.length === 0) {
+        loadInitialGreeting();
+      } else {
+        setContextLoading(false);
+      }
     }
   }, [currentUser]);
 
@@ -192,6 +232,24 @@ export default function Chat() {
     }
   };
 
+  const handleClearChat = () => {
+    if (
+      window.confirm(
+        "Are you sure you want to clear all messages? This cannot be undone."
+      )
+    ) {
+      try {
+        localStorage.removeItem("chat_messages");
+        localStorage.removeItem("chat_input");
+        setMessages([]);
+        setInput("");
+        loadInitialGreeting();
+      } catch (e) {
+        console.error("Failed to clear chat:", e);
+      }
+    }
+  };
+
   if (!currentUser) {
     return null;
   }
@@ -226,10 +284,18 @@ export default function Chat() {
                 </div>
               </div>
             </div>
-            <div className="text-right hidden sm:block">
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {contextLoading ? "Loading..." : "Ready to help"}
-              </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleClearChat}
+                className="px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+              >
+                Clear Chat
+              </button>
+              <div className="text-right hidden sm:block">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {contextLoading ? "Loading..." : "Ready to help"}
+                </p>
+              </div>
             </div>
           </div>
 

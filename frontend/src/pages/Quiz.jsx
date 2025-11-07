@@ -30,14 +30,38 @@ export default function Quiz() {
   const { currentUser } = useAuth();
   const auth = getAuth();
 
-  // State
+  // State with localStorage persistence
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [quiz, setQuiz] = useState(null);
-  const [answers, setAnswers] = useState({});
+  const [quiz, setQuiz] = useState(() => {
+    try {
+      const saved = localStorage.getItem("quiz_data");
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      console.error("Failed to load quiz data:", e);
+      return null;
+    }
+  });
+  const [answers, setAnswers] = useState(() => {
+    try {
+      const saved = localStorage.getItem("quiz_answers");
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      console.error("Failed to load quiz answers:", e);
+      return {};
+    }
+  });
   const [result, setResult] = useState(null);
   const [showCompletion, setShowCompletion] = useState(false);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(() => {
+    try {
+      const saved = localStorage.getItem("quiz_question_index");
+      return saved ? parseInt(saved, 10) : 0;
+    } catch (e) {
+      console.error("Failed to load quiz question index:", e);
+      return 0;
+    }
+  });
 
   const goalId = location.state?.goalId;
   const goal = location.state?.goal;
@@ -94,8 +118,109 @@ export default function Quiz() {
       }
     };
 
-    generateQuiz();
-  }, [currentUser, goalId, navigate]);
+    // Only generate if we don't have a saved quiz
+    if (!quiz) {
+      generateQuiz();
+    } else {
+      setLoading(false);
+    }
+  }, [currentUser, goalId, navigate, quiz]);
+
+  // Save quiz data to localStorage whenever it changes
+  useEffect(() => {
+    if (quiz) {
+      try {
+        localStorage.setItem("quiz_data", JSON.stringify(quiz));
+      } catch (e) {
+        console.error("Failed to save quiz data:", e);
+      }
+    }
+  }, [quiz]);
+
+  // Save answers to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem("quiz_answers", JSON.stringify(answers));
+    } catch (e) {
+      console.error("Failed to save quiz answers:", e);
+    }
+  }, [answers]);
+
+  // Save current question index to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        "quiz_question_index",
+        currentQuestionIndex.toString()
+      );
+    } catch (e) {
+      console.error("Failed to save quiz question index:", e);
+    }
+  }, [currentQuestionIndex]);
+
+  // Handle restart quiz
+  const handleRestartQuiz = () => {
+    if (
+      window.confirm(
+        "Are you sure you want to restart the quiz? You will get a new set of questions and lose your current progress."
+      )
+    ) {
+      try {
+        // Clear quiz data
+        localStorage.removeItem("quiz_data");
+        localStorage.removeItem("quiz_answers");
+        localStorage.removeItem("quiz_question_index");
+
+        // Reset state
+        setQuiz(null);
+        setAnswers({});
+        setResult(null);
+        setCurrentQuestionIndex(0);
+        setLoading(true);
+
+        // Regenerate quiz
+        if (currentUser && goalId) {
+          const generateNewQuiz = async () => {
+            try {
+              const token = await currentUser.getIdToken();
+              const response = await fetch(
+                `${
+                  import.meta.env.VITE_CLOUD_RUN_URL || "http://localhost:8080"
+                }/api/quiz/generate`,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                  },
+                  body: JSON.stringify({
+                    goal_id: goalId,
+                    num_questions: 5,
+                  }),
+                }
+              );
+
+              if (!response.ok) {
+                throw new Error("Failed to generate new quiz");
+              }
+
+              const data = await response.json();
+              setQuiz(data.quiz);
+              toast.success("New quiz generated! 🎯");
+            } catch (error) {
+              console.error("Quiz regeneration error:", error);
+              toast.error("Failed to generate new quiz");
+            } finally {
+              setLoading(false);
+            }
+          };
+          generateNewQuiz();
+        }
+      } catch (e) {
+        console.error("Failed to restart quiz:", e);
+      }
+    }
+  };
 
   // Handle answer selection
   const handleSelectAnswer = (questionId, option) => {
@@ -154,6 +279,15 @@ export default function Quiz() {
 
       const data = await response.json();
       setResult(data.result);
+
+      // Clear localStorage after successful submission
+      try {
+        localStorage.removeItem("quiz_data");
+        localStorage.removeItem("quiz_answers");
+        localStorage.removeItem("quiz_question_index");
+      } catch (e) {
+        console.error("Failed to clear quiz data:", e);
+      }
 
       // Show completion modal if goal was completed
       if (data.result.goal_completed) {
@@ -445,13 +579,23 @@ export default function Quiz() {
                 </p>
               </div>
             </div>
-            <Button
-              variant="outline"
-              onClick={() => navigate("/dashboard")}
-              className="hidden sm:flex"
-            >
-              Exit Quiz
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRestartQuiz}
+                className="text-xs h-8"
+              >
+                Restart Quiz
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => navigate("/dashboard")}
+                className="hidden sm:flex"
+              >
+                Exit Quiz
+              </Button>
+            </div>
           </div>
 
           {/* Progress Bar & Info */}
