@@ -114,6 +114,7 @@ export default function Recommendations() {
       }));
 
       // Create new goal
+      const now = new Date().toISOString();
       const newGoal = {
         student_id: currentUser.uid,
         subject: recommendation.subject,
@@ -121,7 +122,8 @@ export default function Recommendations() {
         description: recommendation.description,
         progress: 0,
         status: "active",
-        started: new Date().toISOString(),
+        created_at: now,
+        started: now,
         target_date: new Date(
           Date.now() + 30 * 24 * 60 * 60 * 1000
         ).toISOString(), // 30 days from now
