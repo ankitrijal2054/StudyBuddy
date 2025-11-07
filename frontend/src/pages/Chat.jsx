@@ -14,7 +14,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Navbar } from "../components/Navbar";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   Loader2,
   Send,
@@ -29,7 +29,12 @@ import {
 export default function Chat() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const messagesEndRef = useRef(null);
+
+  // Get goal context from navigation state (when clicked from dashboard goal card)
+  const goalContext = location.state?.goal;
+  const goalSubject = location.state?.subject || goalContext?.subject;
 
   const [messages, setMessages] = useState(() => {
     // Try to load messages from localStorage on mount
@@ -278,7 +283,16 @@ export default function Chat() {
                       Study Companion
                     </h1>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Powered by AI • Always Learning
+                      {goalSubject ? (
+                        <>
+                          Learning:{" "}
+                          <span className="font-semibold text-blue-600 dark:text-blue-400">
+                            {goalSubject}
+                          </span>
+                        </>
+                      ) : (
+                        "Powered by AI • Always Learning"
+                      )}
                     </p>
                   </div>
                 </div>
