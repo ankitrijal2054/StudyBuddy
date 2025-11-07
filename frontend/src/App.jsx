@@ -10,6 +10,7 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Chat from "./pages/Chat";
 import Quiz from "./pages/Quiz";
+import Recommendations from "./pages/Recommendations";
 
 function PrivateRoute({ children }) {
   const { currentUser, loading } = useAuth();
@@ -80,6 +81,14 @@ function App() {
           element={
             <PrivateRoute>
               <Quiz />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/recommendations"
+          element={
+            <PrivateRoute>
+              <Recommendations />
             </PrivateRoute>
           }
         />

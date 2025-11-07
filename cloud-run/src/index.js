@@ -554,6 +554,146 @@ app.get("/api/quiz/:quizId", validateFirebaseToken, async (req, res) => {
 });
 
 // ============================================================================
+// RECOMMENDATIONS ENDPOINT (Phase 6)
+// ============================================================================
+
+/**
+ * POST /api/recommendations/generate
+ * Generate recommendations for a completed goal using GPT-4o-mini
+ * Body: { student_id, completed_goal_id, completed_subject, completed_goal }
+ * Internal endpoint (called by Cloud Function after goal completion)
+ */
+app.post("/api/recommendations/generate", async (req, res) => {
+  try {
+    const { student_id, completed_goal_id, completed_subject, completed_goal } =
+      req.body;
+
+    console.log(
+      `\n💡 Generating recommendations for student: ${student_id}, completed: ${completed_subject}`
+    );
+
+    // Validate internal request
+    if (req.headers["x-internal-request"] !== "true") {
+      // For now, allow without auth since this is called from Cloud Function
+      // In production, validate with service account
+    }
+
+    // Validate input
+    if (
+      !student_id ||
+      !completed_goal_id ||
+      !completed_subject ||
+      !completed_goal
+    ) {
+      return res.status(400).json({
+        error: "Invalid Request",
+        message:
+          "student_id, completed_goal_id, completed_subject, and completed_goal are required",
+      });
+    }
+
+    const db = admin.firestore();
+    const {
+      generateRecommendations,
+    } = require("./services/recommendationService");
+
+    // Generate recommendations
+    const recommendations = await generateRecommendations(
+      student_id,
+      completed_goal_id,
+      completed_subject,
+      completed_goal,
+      db
+    );
+
+    // Store recommendations in Firestore
+    const recommendationDocRef = db.collection("recommendations").doc();
+    await recommendationDocRef.set({
+      student_id,
+      completed_goal_id,
+      completed_subject,
+      completed_goal,
+      recommendations: recommendations,
+      generated_at: admin.firestore.FieldValue.serverTimestamp(),
+      viewed: false,
+      accepted: [],
+    });
+
+    console.log(
+      `   ✅ Recommendations stored: ${recommendationDocRef.id} (${recommendations.length} suggestions)`
+    );
+
+    res.status(200).json({
+      success: true,
+      recommendation_id: recommendationDocRef.id,
+      recommendations_count: recommendations.length,
+      recommendations: recommendations,
+    });
+  } catch (error) {
+    console.error("❌ Recommendations Error:", error.message);
+
+    res.status(500).json({
+      error: "Recommendations Generation Failed",
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/recommendations/:studentId
+ * Get recommendations for a specific student (paginated, most recent first)
+ */
+app.get(
+  "/api/recommendations/:studentId",
+  validateFirebaseToken,
+  async (req, res) => {
+    try {
+      const { studentId } = req.params;
+      const currentUser = req.user.uid;
+
+      // Verify user is requesting their own recommendations
+      if (studentId !== currentUser) {
+        return res.status(403).json({
+          error: "Forbidden",
+          message: "You do not have access to these recommendations",
+        });
+      }
+
+      const db = admin.firestore();
+
+      // Get most recent recommendations
+      const recommendationsSnapshot = await db
+        .collection("recommendations")
+        .where("student_id", "==", studentId)
+        .orderBy("generated_at", "desc")
+        .limit(10)
+        .get();
+
+      const recommendations = recommendationsSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      console.log(
+        `   ✅ Retrieved ${recommendations.length} recommendation sets for student ${studentId}`
+      );
+
+      res.status(200).json({
+        success: true,
+        recommendations: recommendations,
+      });
+    } catch (error) {
+      console.error("❌ Recommendations Fetch Error:", error.message);
+
+      res.status(500).json({
+        error: "Failed to fetch recommendations",
+        message: error.message,
+      });
+    }
+  }
+);
+
+// ============================================================================
 // ERROR HANDLING
 // ============================================================================
 

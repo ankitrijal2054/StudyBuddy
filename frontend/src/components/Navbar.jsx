@@ -12,6 +12,7 @@ import {
   Home,
   MessageCircle,
   BookOpen,
+  Lightbulb,
 } from "lucide-react";
 
 export function Navbar() {
@@ -72,6 +73,12 @@ export function Navbar() {
               className="px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors flex items-center"
             >
               <BookOpen className="w-4 h-4 mr-1" /> Quiz
+            </button>
+            <button
+              onClick={() => navigate("/recommendations")}
+              className="px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors flex items-center"
+            >
+              <Lightbulb className="w-4 h-4 mr-1" /> Recommendations
             </button>
           </div>
 
@@ -157,6 +164,15 @@ export function Navbar() {
               className="block w-full text-left px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg mb-2"
             >
               <BookOpen className="w-4 h-4 mr-2 inline" /> Quiz
+            </button>
+            <button
+              onClick={() => {
+                navigate("/recommendations");
+                setIsOpen(false);
+              }}
+              className="block w-full text-left px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg mb-2"
+            >
+              <Lightbulb className="w-4 h-4 mr-2 inline" /> Recommendations
             </button>
             <hr className="my-2 dark:border-slate-700" />
             <button
