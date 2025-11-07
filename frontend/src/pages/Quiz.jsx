@@ -158,6 +158,19 @@ export default function Quiz() {
     }
   }, [currentQuestionIndex]);
 
+  // Handle exit quiz
+  const handleExitQuiz = () => {
+    try {
+      // Clear quiz data from localStorage
+      localStorage.removeItem("quiz_data");
+      localStorage.removeItem("quiz_answers");
+      localStorage.removeItem("quiz_question_index");
+    } catch (e) {
+      console.error("Failed to clear quiz data:", e);
+    }
+    navigate("/dashboard");
+  };
+
   // Handle restart quiz
   const handleRestartQuiz = () => {
     if (
@@ -562,11 +575,7 @@ export default function Quiz() {
         <div className="max-w-4xl mx-auto w-full flex-1 flex flex-col overflow-hidden">
           <div className="flex justify-between items-center mb-4 flex-shrink-0">
             <div className="flex items-center gap-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate("/dashboard")}
-              >
+              <Button variant="outline" size="sm" onClick={handleExitQuiz}>
                 <ArrowLeft className="w-4 h-4" />
               </Button>
               <div>
@@ -590,7 +599,7 @@ export default function Quiz() {
               </Button>
               <Button
                 variant="outline"
-                onClick={() => navigate("/dashboard")}
+                onClick={handleExitQuiz}
                 className="hidden sm:flex"
               >
                 Exit Quiz
