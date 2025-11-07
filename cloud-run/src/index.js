@@ -597,7 +597,7 @@ app.post("/api/recommendations/generate", async (req, res) => {
       generateRecommendations,
     } = require("./services/recommendationService");
 
-    // Generate recommendations
+    // Generate recommendations (no storage needed, UI only)
     const recommendations = await generateRecommendations(
       student_id,
       completed_goal_id,
@@ -606,26 +606,12 @@ app.post("/api/recommendations/generate", async (req, res) => {
       db
     );
 
-    // Store recommendations in Firestore
-    const recommendationDocRef = db.collection("recommendations").doc();
-    await recommendationDocRef.set({
-      student_id,
-      completed_goal_id,
-      completed_subject,
-      completed_goal,
-      recommendations: recommendations,
-      generated_at: admin.firestore.FieldValue.serverTimestamp(),
-      viewed: false,
-      accepted: [],
-    });
-
     console.log(
-      `   ✅ Recommendations stored: ${recommendationDocRef.id} (${recommendations.length} suggestions)`
+      `   ✅ Recommendations generated (${recommendations.length} suggestions)`
     );
 
     res.status(200).json({
       success: true,
-      recommendation_id: recommendationDocRef.id,
       recommendations_count: recommendations.length,
       recommendations: recommendations,
     });
@@ -638,60 +624,6 @@ app.post("/api/recommendations/generate", async (req, res) => {
     });
   }
 });
-
-/**
- * GET /api/recommendations/:studentId
- * Get recommendations for a specific student (paginated, most recent first)
- */
-app.get(
-  "/api/recommendations/:studentId",
-  validateFirebaseToken,
-  async (req, res) => {
-    try {
-      const { studentId } = req.params;
-      const currentUser = req.user.uid;
-
-      // Verify user is requesting their own recommendations
-      if (studentId !== currentUser) {
-        return res.status(403).json({
-          error: "Forbidden",
-          message: "You do not have access to these recommendations",
-        });
-      }
-
-      const db = admin.firestore();
-
-      // Get most recent recommendations
-      const recommendationsSnapshot = await db
-        .collection("recommendations")
-        .where("student_id", "==", studentId)
-        .orderBy("generated_at", "desc")
-        .limit(10)
-        .get();
-
-      const recommendations = recommendationsSnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-
-      console.log(
-        `   ✅ Retrieved ${recommendations.length} recommendation sets for student ${studentId}`
-      );
-
-      res.status(200).json({
-        success: true,
-        recommendations: recommendations,
-      });
-    } catch (error) {
-      console.error("❌ Recommendations Fetch Error:", error.message);
-
-      res.status(500).json({
-        error: "Failed to fetch recommendations",
-        message: error.message,
-      });
-    }
-  }
-);
 
 // ============================================================================
 // ERROR HANDLING

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
@@ -22,20 +22,11 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { db } from "@/firebase";
-import {
-  collection,
-  query,
-  where,
-  orderBy,
-  limit,
-  onSnapshot,
-  doc,
-  updateDoc,
-  addDoc,
-} from "firebase/firestore";
+import { addDoc, collection } from "firebase/firestore";
 
 export default function Recommendations() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { currentUser } = useAuth();
 
   const [recommendations, setRecommendations] = useState([]);
@@ -43,53 +34,69 @@ export default function Recommendations() {
   const [accepting, setAccepting] = useState({});
   const [completedGoal, setCompletedGoal] = useState(null);
 
-  // Load recommendations on mount
+  // Generate recommendations on mount
   useEffect(() => {
     if (!currentUser) return;
 
-    console.log(`📚 Loading recommendations for student: ${currentUser.uid}`);
+    const generateRecommendations = async () => {
+      try {
+        setLoading(true);
+        const token = await currentUser.getIdToken();
 
-    // Query most recent recommendations
-    const q = query(
-      collection(db, "recommendations"),
-      where("student_id", "==", currentUser.uid),
-      orderBy("generated_at", "desc"),
-      limit(1)
-    );
+        // Get goal info from location state if available
+        const goalInfo = location.state?.goalInfo || {
+          subject: "Unknown",
+          goal: "Your Learning Goal",
+        };
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        if (snapshot.empty) {
-          console.log("   No recommendations found");
-          setRecommendations([]);
-          setLoading(false);
-          return;
-        }
-
-        const docData = snapshot.docs[0].data();
         console.log(
-          `   ✅ Found ${docData.recommendations?.length || 0} recommendations`
+          `💡 Generating recommendations for student: ${currentUser.uid}`
         );
 
-        // Extract the recommendations array
-        const recs = docData.recommendations || [];
-        setRecommendations(recs);
-        setCompletedGoal({
-          subject: docData.completed_subject,
-          goal: docData.completed_goal,
-        });
-        setLoading(false);
-      },
-      (error) => {
-        console.error("❌ Error loading recommendations:", error);
-        toast.error("Failed to load recommendations");
+        const response = await fetch(
+          `${
+            import.meta.env.VITE_CLOUD_RUN_URL || "http://localhost:8080"
+          }/api/recommendations/generate`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              student_id: currentUser.uid,
+              completed_goal_id: location.state?.goalId || "unknown",
+              completed_subject: goalInfo.subject,
+              completed_goal: goalInfo.goal,
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(
+            errorData.message || "Failed to generate recommendations"
+          );
+        }
+
+        const data = await response.json();
+        console.log(
+          `   ✅ Generated ${data.recommendations?.length || 0} recommendations`
+        );
+
+        setRecommendations(data.recommendations || []);
+        setCompletedGoal(goalInfo);
+      } catch (error) {
+        console.error("❌ Error generating recommendations:", error);
+        toast.error("Failed to generate recommendations: " + error.message);
+        setRecommendations([]);
+      } finally {
         setLoading(false);
       }
-    );
+    };
 
-    return unsubscribe;
-  }, [currentUser]);
+    generateRecommendations();
+  }, [currentUser, location]);
 
   // Handle starting a new goal from recommendation
   const handleStartLearning = async (recommendation) => {
@@ -99,6 +106,8 @@ export default function Recommendations() {
     }
 
     try {
+      console.log(`🚀 Starting to create goal for: ${recommendation.subject}`);
+
       setAccepting((prev) => ({
         ...prev,
         [recommendation.subject]: true,
@@ -119,20 +128,41 @@ export default function Recommendations() {
         completed: null,
       };
 
+      console.log(`📝 Goal object:`, newGoal);
+      console.log(`🔓 Current user UID: ${currentUser.uid}`);
+
       const docRef = await addDoc(collection(db, "goals"), newGoal);
 
       console.log(`✅ Created new goal: ${docRef.id}`);
+      console.log(`🎯 Goal document ID: ${docRef.id}`);
+
       toast.success(`Started "${recommendation.title}"! Let's get learning 🎯`);
 
       // Navigate to dashboard
       setTimeout(() => {
+        console.log(
+          `📍 Navigating to dashboard with newGoal: ${recommendation.subject}`
+        );
         navigate("/dashboard", {
           state: { newGoal: recommendation.subject },
         });
       }, 1000);
     } catch (error) {
       console.error("❌ Error creating goal:", error);
-      toast.error("Failed to create goal. Try again.");
+      console.error(`   Error code: ${error.code}`);
+      console.error(`   Error message: ${error.message}`);
+      console.error(`   Full error:`, error);
+
+      // Provide specific error messages
+      if (error.code === "permission-denied") {
+        toast.error(
+          "Permission denied. Check Firestore rules or contact support."
+        );
+      } else if (error.code === "unauthenticated") {
+        toast.error("Please log in again.");
+      } else {
+        toast.error(`Failed to create goal: ${error.message}`);
+      }
     } finally {
       setAccepting((prev) => ({
         ...prev,
@@ -152,7 +182,7 @@ export default function Recommendations() {
               <BookOpen className="w-8 h-8 text-white" />
             </div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              Loading Your Recommendations
+              Generating Your Recommendations
             </h2>
             <p className="text-gray-600 dark:text-gray-400 mb-8">
               Finding the perfect next steps for your learning journey...
@@ -195,11 +225,11 @@ export default function Recommendations() {
                 <Lightbulb className="w-10 h-10 text-indigo-600 dark:text-indigo-400" />
               </div>
               <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">
-                No Recommendations Yet
+                No Recommendations Available
               </h2>
               <p className="text-lg text-gray-600 dark:text-gray-400 mb-8">
-                Complete your first goal to get personalized learning
-                recommendations! 🎯
+                Recommendations will appear here after you complete a goal with
+                a score of 85% or higher! 🎯
               </p>
               <Button
                 onClick={() => navigate("/dashboard")}

@@ -107,7 +107,7 @@ export const GoalCompletionModal = ({
               Continue Learning
             </Button>
             <Button
-              onClick={onViewRecommendations}
+              onClick={() => onViewRecommendations()}
               className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
             >
               See Recommendations →
