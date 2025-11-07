@@ -17,6 +17,7 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
+  Plus,
 } from "lucide-react";
 import { db } from "../firebase";
 import {
@@ -44,6 +45,7 @@ export default function Dashboard() {
   const [showTopicSelector, setShowTopicSelector] = useState(
     location.state?.showTopicSelector || false
   );
+  const [createGoalMode, setCreateGoalMode] = useState(false);
 
   // Real-time data state
   const [goals, setGoals] = useState([]);
@@ -495,6 +497,29 @@ export default function Dashboard() {
                     </div>
                   );
                 })}
+
+                {/* Add New Learning Goal Button */}
+                <div
+                  className="bg-white dark:bg-slate-800 rounded-2xl border-2 border-dashed border-gray-300 dark:border-slate-600 overflow-hidden hover:shadow-lg transition-shadow hover:border-blue-400 dark:hover:border-blue-400 cursor-pointer animate-slide-up"
+                  style={{ animationDelay: `${goals.length * 0.1}s` }}
+                  onClick={() => {
+                    setShowTopicSelector(true);
+                    setCreateGoalMode(true);
+                  }}
+                >
+                  <div className="h-1 bg-gradient-to-r from-blue-600 to-purple-600"></div>
+                  <div className="p-6 flex flex-col items-center justify-center h-full min-h-[280px]">
+                    <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 rounded-2xl flex items-center justify-center mb-4">
+                      <Plus className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <h3 className="font-bold text-gray-900 dark:text-white text-lg mb-2 text-center">
+                      Add New Learning Goal
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-400 text-sm text-center">
+                      Start learning a new subject
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -708,7 +733,12 @@ export default function Dashboard() {
       <TopicSelector
         isOpen={showTopicSelector}
         onSelect={handleTopicSelected}
-        onClose={() => setShowTopicSelector(false)}
+        onClose={() => {
+          setShowTopicSelector(false);
+          setCreateGoalMode(false);
+        }}
+        createGoalMode={createGoalMode}
+        onCreateModeChange={(mode) => setCreateGoalMode(mode)}
       />
     </>
   );

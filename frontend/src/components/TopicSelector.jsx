@@ -22,16 +22,32 @@ import { Progress } from "@/components/ui/progress";
 import { Plus } from "lucide-react";
 import toast from "react-hot-toast";
 
-export const TopicSelector = ({ isOpen, onSelect, onClose }) => {
+export const TopicSelector = ({
+  isOpen,
+  onSelect,
+  onClose,
+  createGoalMode,
+  onCreateModeChange,
+}) => {
   const [activeGoals, setActiveGoals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedGoalId, setSelectedGoalId] = useState(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(createGoalMode || false);
   const [newGoalSubject, setNewGoalSubject] = useState("");
   const [newGoalTitle, setNewGoalTitle] = useState("");
   const [creatingGoal, setCreatingGoal] = useState(false);
   const { currentUser } = useAuth();
+
+  // Auto-show create form when createGoalMode is true
+  useEffect(() => {
+    if (createGoalMode) {
+      setShowCreateForm(true);
+      if (onCreateModeChange) {
+        onCreateModeChange(true);
+      }
+    }
+  }, [createGoalMode, onCreateModeChange]);
 
   useEffect(() => {
     if (!isOpen || !currentUser) {
