@@ -48,7 +48,7 @@ export function Dashboard() {
 
 ```jsx
 export function GoalCard({ goal, onContinue }) {
-  const progressPercent = (goal.progress || 0) * 100;
+  const progressPercent = goal.progress || 0;
 
   return (
     <div className="p-4 bg-white rounded-lg shadow-sm border border-indigo-100">
