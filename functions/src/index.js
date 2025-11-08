@@ -120,3 +120,87 @@ exports.generateRecommendations = functions.firestore
 exports.healthCheck = functions.https.onRequest((request, response) => {
   response.json({ status: "ok", timestamp: new Date().toISOString() });
 });
+
+// Import nudge service
+const {
+  checkAndSendDay7Nudge,
+  checkAndSendInactivityNudge,
+  checkAndSendGoalNearCompletionNudge,
+} = require("./services/nudgeService");
+
+// Cloud Function: Scheduled nudge checker (runs every hour)
+exports.checkAndSendNudges = functions.pubsub
+  .schedule("every 1 hours")
+  .timeZone("America/New_York") // Set timezone for consistency
+  .onRun(async (context) => {
+    try {
+      functions.logger.info("Starting nudge check cycle");
+
+      // Run all 3 nudge checks in parallel
+      await Promise.all([
+        checkAndSendDay7Nudge(),
+        checkAndSendInactivityNudge(),
+        checkAndSendGoalNearCompletionNudge(),
+      ]);
+
+      functions.logger.info("Nudge check cycle completed successfully");
+      return null;
+    } catch (error) {
+      functions.logger.error(`Error in nudge check cycle: ${error}`);
+      return null; // Don't throw - let Cloud Scheduler retry if needed
+    }
+  });
+
+// Cloud Function: Manual nudge trigger (for testing)
+exports.triggerNudgesManual = functions.https.onRequest(
+  async (request, response) => {
+    try {
+      // Security: Check for authorization header
+      const authHeader = request.get("Authorization");
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return response.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.substring(7);
+      // In production, validate this token against a service account
+      // For MVP, we'll just require a specific secret
+      const MANUAL_TRIGGER_SECRET =
+        process.env.MANUAL_TRIGGER_SECRET || "test-secret";
+      if (token !== MANUAL_TRIGGER_SECRET) {
+        return response.status(401).json({ error: "Invalid token" });
+      }
+
+      // Parse query parameter to determine which nudge to trigger
+      const nudgeType = request.query.type || "all"; // all | day7 | inactivity | near_completion
+
+      const results = {};
+
+      if (nudgeType === "all" || nudgeType === "day7") {
+        results.day7 = "Checking Day 7 nudges...";
+        await checkAndSendDay7Nudge();
+      }
+
+      if (nudgeType === "all" || nudgeType === "inactivity") {
+        results.inactivity = "Checking inactivity nudges...";
+        await checkAndSendInactivityNudge();
+      }
+
+      if (nudgeType === "all" || nudgeType === "near_completion") {
+        results.near_completion = "Checking goal near-completion nudges...";
+        await checkAndSendGoalNearCompletionNudge();
+      }
+
+      return response.json({
+        success: true,
+        message: "Nudge trigger completed",
+        results,
+      });
+    } catch (error) {
+      functions.logger.error(`Error in manual nudge trigger: ${error}`);
+      return response.status(500).json({
+        error: "Failed to trigger nudges",
+        details: error.message,
+      });
+    }
+  }
+);
