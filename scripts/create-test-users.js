@@ -9,7 +9,7 @@
  * Usage:
  *   node create-test-users.js
  *
- * This will create 5 test users with passwords: TestPassword123!
+ * This will create 6 test users with passwords: TestPassword123!
  */
 
 const admin = require("firebase-admin");
@@ -41,6 +41,11 @@ const TEST_USERS = [
     password: "test123",
     name: "Priya Sharma",
   },
+  {
+    email: "ankitrijal2054@gmail.com",
+    password: "test123",
+    name: "Ankit Rijal",
+  },
 ];
 
 console.log("🔥 Initializing Firebase Admin SDK...\n");
@@ -49,7 +54,7 @@ try {
   // Try to load service account key
   let credentials;
   try {
-    credentials = require("./firebase-key.json");
+    credentials = require("../firebase-key.json");
   } catch (e) {
     console.warn("⚠️  firebase-key.json not found, using default credentials");
   }
@@ -118,7 +123,7 @@ async function main() {
 
     console.log("\n✨ Test users created!\n");
     console.log("📝 Login Credentials:\n");
-    console.log("Password for all: TestPassword123!\n");
+    console.log("Password for all: test123\n");
 
     users.forEach((user) => {
       console.log(`Email: ${user.email}`);

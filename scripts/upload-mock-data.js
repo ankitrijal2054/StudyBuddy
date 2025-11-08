@@ -7,7 +7,7 @@
  * Uses Firebase UIDs as the primary student_id (no mapping collection needed).
  *
  * Usage:
- *   node scripts/upload-mock-data.js <uid1> <uid2> <uid3> <uid4> <uid5>
+ *   node scripts/upload-mock-data.js <uid1> <uid2> <uid3> <uid4> <uid5> <uid6>
  *
  * The UIDs will be used as student_id in Firestore.
  */
@@ -19,10 +19,12 @@ const path = require("path");
 // Get UIDs from command line arguments
 const uids = process.argv.slice(2);
 
-if (uids.length !== 5) {
-  console.error("❌ Error: Please provide exactly 5 Firebase UIDs");
-  console.error("Usage: node scripts/upload-mock-data.js <uid1> <uid2> <uid3> <uid4> <uid5>");
-  console.error("\nGet UIDs by running: node create-test-users.js");
+if (uids.length !== 6) {
+  console.error("❌ Error: Please provide exactly 6 Firebase UIDs");
+  console.error(
+    "Usage: node scripts/upload-mock-data.js <uid1> <uid2> <uid3> <uid4> <uid5> <uid6>"
+  );
+  console.error("\nGet UIDs by running: node scripts/create-test-users.js");
   process.exit(1);
 }
 
@@ -115,7 +117,7 @@ async function createStudent(studentData, uid) {
     // Use Firebase UID as the document ID
     const docRef = db.collection("students").doc(uid);
     await docRef.set({
-      student_id: uid,  // Also store as field for queries
+      student_id: uid, // Also store as field for queries
       name: studentData.name,
       email: studentData.email,
       grade: studentData.grade,
@@ -146,7 +148,7 @@ async function createTranscript(transcriptData, storageUrl, uid) {
       .doc(transcriptData.transcript_id);
     await docRef.set({
       transcript_id: transcriptData.transcript_id,
-      student_id: uid,  // Use Firebase UID
+      student_id: uid, // Use Firebase UID
       subject: transcriptData.subject,
       topics: transcriptData.topics || [],
       session_date: new Date(transcriptData.session_date),
@@ -154,7 +156,7 @@ async function createTranscript(transcriptData, storageUrl, uid) {
       tutor_notes: transcriptData.tutor_notes || "",
       storage_url: storageUrl,
       created_at: new Date(transcriptData.created_at),
-      date: new Date(transcriptData.session_date),  // For Pinecone metadata
+      date: new Date(transcriptData.session_date), // For Pinecone metadata
     });
   } catch (error) {
     console.error(
@@ -179,11 +181,11 @@ async function createGoals(student, uid) {
 
       await docRef.set({
         goal_id: goalId,
-        student_id: uid,  // Use Firebase UID
+        student_id: uid, // Use Firebase UID
         title: goal,
         goal: goal,
         status: "active",
-        progress: Math.floor(Math.random() * 60) + 20,  // Random 20-80% for testing
+        progress: Math.floor(Math.random() * 60) + 20, // Random 20-80% for testing
         progress_percentage: Math.floor(Math.random() * 60) + 20,
         quiz_scores: [],
         created_at: new Date(),
@@ -235,14 +237,14 @@ async function uploadAllData() {
     // Upload transcripts - map to correct UID based on original student_id
     console.log("\n📚 Creating transcripts...");
     let transcriptCount = 0;
-    
+
     // Create mapping from original student_id to new UID
     const studentIdToUidMap = {};
     const originalStudentIds = Object.values(students).map((s, idx) => ({
       id: s.student_id,
-      uid: uids[idx]
+      uid: uids[idx],
     }));
-    
+
     originalStudentIds.forEach(({ id, uid }) => {
       studentIdToUidMap[id] = uid;
     });
@@ -252,7 +254,9 @@ async function uploadAllData() {
       const uid = studentIdToUidMap[originalStudentId];
 
       if (!uid) {
-        console.warn(`   ⚠️  No UID found for transcript with student_id ${originalStudentId}`);
+        console.warn(
+          `   ⚠️  No UID found for transcript with student_id ${originalStudentId}`
+        );
         continue;
       }
 
