@@ -15,6 +15,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Navbar } from "../components/Navbar";
 import { useNavigate, useLocation } from "react-router-dom";
+import { chatAPI } from "../services/apiService";
 import {
   Loader2,
   Send,
@@ -109,22 +110,7 @@ export default function Chat() {
       setContextLoading(true);
       const idToken = await currentUser.getIdToken();
 
-      const response = await fetch(
-        `${import.meta.env.VITE_CLOUD_RUN_URL}/api/chat/initial-context`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${idToken}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to load context");
-      }
-
-      const data = await response.json();
+      const data = await chatAPI.getInitialContext(idToken);
 
       // Add greeting as first message
       const greetingMessage = {
@@ -176,28 +162,7 @@ export default function Chat() {
       const idToken = await currentUser.getIdToken();
 
       // Call chat endpoint
-      const response = await fetch(
-        `${import.meta.env.VITE_CLOUD_RUN_URL}/api/chat`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${idToken}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            message: userInput,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.message || `Chat failed: ${response.statusText}`
-        );
-      }
-
-      const data = await response.json();
+      const data = await chatAPI.sendMessage(userInput, idToken);
 
       // Add AI response
       const aiMessage = {

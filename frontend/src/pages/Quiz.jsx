@@ -13,6 +13,7 @@ import {
 import { GoalCompletionModal } from "@/components/GoalCompletionModal";
 import { getAuth } from "firebase/auth";
 import toast from "react-hot-toast";
+import { quizAPI } from "@/services/apiService";
 import {
   ArrowLeft,
   BookOpen,
@@ -84,29 +85,7 @@ export default function Quiz() {
         setLoading(true);
         const token = await currentUser.getIdToken();
 
-        const response = await fetch(
-          `${
-            import.meta.env.VITE_CLOUD_RUN_URL || "http://localhost:8080"
-          }/api/quiz/generate`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              goal_id: goalId,
-              num_questions: 5,
-            }),
-          }
-        );
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || "Failed to generate quiz");
-        }
-
-        const data = await response.json();
+        const data = await quizAPI.generateQuiz(goalId, 5, token);
         setQuiz(data.quiz);
 
         // Log all quiz results with correct answers
@@ -241,28 +220,7 @@ export default function Quiz() {
           const generateNewQuiz = async () => {
             try {
               const token = await currentUser.getIdToken();
-              const response = await fetch(
-                `${
-                  import.meta.env.VITE_CLOUD_RUN_URL || "http://localhost:8080"
-                }/api/quiz/generate`,
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                  },
-                  body: JSON.stringify({
-                    goal_id: goalId,
-                    num_questions: 5,
-                  }),
-                }
-              );
-
-              if (!response.ok) {
-                throw new Error("Failed to generate new quiz");
-              }
-
-              const data = await response.json();
+              const data = await quizAPI.generateQuiz(goalId, 5, token);
               setQuiz(data.quiz);
               toast.success("New quiz generated! 🎯");
             } catch (error) {
@@ -313,29 +271,7 @@ export default function Quiz() {
         answerMap[q.id] = answers[q.id] || answers[idx];
       });
 
-      const response = await fetch(
-        `${
-          import.meta.env.VITE_CLOUD_RUN_URL || "http://localhost:8080"
-        }/api/quiz/submit`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            quiz_id: quiz.quiz_id,
-            answers: answerMap,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to submit quiz");
-      }
-
-      const data = await response.json();
+      const data = await quizAPI.submitQuiz(quiz.quiz_id, answerMap, token);
       setResult(data.result);
 
       // Clear localStorage after successful submission

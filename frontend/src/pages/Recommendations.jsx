@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import toast from "react-hot-toast";
+import { recommendationsAPI } from "@/services/apiService";
 import {
   Zap,
   ArrowRight,
@@ -53,33 +54,13 @@ export default function Recommendations() {
           `💡 Generating recommendations for student: ${currentUser.uid}`
         );
 
-        const response = await fetch(
-          `${
-            import.meta.env.VITE_CLOUD_RUN_URL || "http://localhost:8080"
-          }/api/recommendations/generate`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              student_id: currentUser.uid,
-              completed_goal_id: location.state?.goalId || "unknown",
-              completed_subject: goalInfo.subject,
-              completed_goal: goalInfo.goal,
-            }),
-          }
+        const data = await recommendationsAPI.generateRecommendations(
+          currentUser.uid,
+          location.state?.goalId || "unknown",
+          goalInfo.subject,
+          goalInfo.goal,
+          token
         );
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(
-            errorData.message || "Failed to generate recommendations"
-          );
-        }
-
-        const data = await response.json();
         console.log(
           `   ✅ Generated ${data.recommendations?.length || 0} recommendations`
         );

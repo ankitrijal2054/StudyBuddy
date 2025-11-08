@@ -1,5 +1,4 @@
 const { OpenAI } = require("openai");
-const { queryPinecone } = require("./pineconeService");
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
