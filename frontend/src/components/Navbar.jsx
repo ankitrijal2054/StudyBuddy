@@ -6,7 +6,6 @@ import {
   Menu,
   X,
   LogOut,
-  Settings,
   Moon,
   Sun,
   Home,
@@ -16,7 +15,7 @@ import {
 } from "lucide-react";
 
 export function Navbar() {
-  const { currentUser, logout, studentProfile } = useAuth();
+  const { logout } = useAuth();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [isDark, setIsDark] = useState(false);
@@ -93,13 +92,6 @@ export function Navbar() {
               ) : (
                 <Moon className="w-5 h-5 text-gray-600" />
               )}
-            </button>
-
-            <button
-              onClick={() => navigate("/settings")}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
-            >
-              <Settings className="w-5 h-5 text-gray-600 dark:text-gray-400" />
             </button>
 
             <button

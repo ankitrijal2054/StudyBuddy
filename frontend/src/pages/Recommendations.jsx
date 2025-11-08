@@ -50,10 +50,6 @@ export default function Recommendations() {
           goal: "Your Learning Goal",
         };
 
-        console.log(
-          `💡 Generating recommendations for student: ${currentUser.uid}`
-        );
-
         const data = await recommendationsAPI.generateRecommendations(
           currentUser.uid,
           location.state?.goalId || "unknown",
@@ -61,14 +57,11 @@ export default function Recommendations() {
           goalInfo.goal,
           token
         );
-        console.log(
-          `   ✅ Generated ${data.recommendations?.length || 0} recommendations`
-        );
 
         setRecommendations(data.recommendations || []);
         setCompletedGoal(goalInfo);
       } catch (error) {
-        console.error("❌ Error generating recommendations:", error);
+        console.error("Failed to generate recommendations:", error);
         toast.error("Failed to generate recommendations: " + error.message);
         setRecommendations([]);
       } finally {
@@ -87,8 +80,6 @@ export default function Recommendations() {
     }
 
     try {
-      console.log(`🚀 Starting to create goal for: ${recommendation.subject}`);
-
       setAccepting((prev) => ({
         ...prev,
         [recommendation.subject]: true,
@@ -111,30 +102,18 @@ export default function Recommendations() {
         completed: null,
       };
 
-      console.log(`📝 Goal object:`, newGoal);
-      console.log(`🔓 Current user UID: ${currentUser.uid}`);
-
-      const docRef = await addDoc(collection(db, "goals"), newGoal);
-
-      console.log(`✅ Created new goal: ${docRef.id}`);
-      console.log(`🎯 Goal document ID: ${docRef.id}`);
+      await addDoc(collection(db, "goals"), newGoal);
 
       toast.success(`Started "${recommendation.title}"! Let's get learning 🎯`);
 
       // Navigate to dashboard
       setTimeout(() => {
-        console.log(
-          `📍 Navigating to dashboard with newGoal: ${recommendation.subject}`
-        );
         navigate("/dashboard", {
           state: { newGoal: recommendation.subject },
         });
       }, 1000);
     } catch (error) {
-      console.error("❌ Error creating goal:", error);
-      console.error(`   Error code: ${error.code}`);
-      console.error(`   Error message: ${error.message}`);
-      console.error(`   Full error:`, error);
+      console.error("Failed to create goal:", error);
 
       // Provide specific error messages
       if (error.code === "permission-denied") {

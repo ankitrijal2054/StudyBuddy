@@ -11,7 +11,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { GoalCompletionModal } from "@/components/GoalCompletionModal";
-import { getAuth } from "firebase/auth";
 import toast from "react-hot-toast";
 import { quizAPI } from "@/services/apiService";
 import {
@@ -29,7 +28,6 @@ export default function Quiz() {
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser } = useAuth();
-  const auth = getAuth();
 
   // State with localStorage persistence
   const [loading, setLoading] = useState(true);
@@ -65,7 +63,6 @@ export default function Quiz() {
   });
 
   const goalId = location.state?.goalId;
-  const goal = location.state?.goal;
 
   // Validate that we have a goal selected
   useEffect(() => {
@@ -87,29 +84,6 @@ export default function Quiz() {
 
         const data = await quizAPI.generateQuiz(goalId, 5, token);
         setQuiz(data.quiz);
-
-        // Log all quiz results with correct answers
-        console.log("\n📋 QUIZ LOADED - All Questions & Answers:");
-        console.log("=".repeat(60));
-        console.log(`📚 Subject: ${data.quiz.subject}`);
-        console.log(`📖 Title: ${data.quiz.title}`);
-        console.log(`⚡ Difficulty: ${data.quiz.difficulty}`);
-        console.log(`📝 Total Questions: ${data.quiz.num_questions}`);
-        console.log("=".repeat(60));
-
-        data.quiz.questions.forEach((q, idx) => {
-          console.log(`\n❓ Question ${idx + 1}: ${q.question}`);
-          console.log(`   Options:`);
-          Object.entries(q.options).forEach(([key, value]) => {
-            const isCorrect = key === q.correct_answer ? " ✅ CORRECT" : "";
-            console.log(`   ${key.toUpperCase()}) ${value}${isCorrect}`);
-          });
-          console.log(`   Answer Key: ${q.correct_answer.toUpperCase()}`);
-        });
-
-        console.log("\n" + "=".repeat(60));
-        console.log("✅ Quiz ready to take!\n");
-
         toast.success("Quiz generated! Let's get started 🎯");
       } catch (error) {
         console.error("Quiz generation error:", error);
@@ -125,28 +99,6 @@ export default function Quiz() {
       generateQuiz();
     } else {
       setLoading(false);
-
-      // Also log when loading from localStorage
-      console.log("\n📋 QUIZ LOADED FROM CACHE - All Questions & Answers:");
-      console.log("=".repeat(60));
-      console.log(`📚 Subject: ${quiz.subject}`);
-      console.log(`📖 Title: ${quiz.title}`);
-      console.log(`⚡ Difficulty: ${quiz.difficulty}`);
-      console.log(`📝 Total Questions: ${quiz.num_questions}`);
-      console.log("=".repeat(60));
-
-      quiz.questions.forEach((q, idx) => {
-        console.log(`\n❓ Question ${idx + 1}: ${q.question}`);
-        console.log(`   Options:`);
-        Object.entries(q.options).forEach(([key, value]) => {
-          const isCorrect = key === q.correct_answer ? " ✅ CORRECT" : "";
-          console.log(`   ${key.toUpperCase()}) ${value}${isCorrect}`);
-        });
-        console.log(`   Answer Key: ${q.correct_answer.toUpperCase()}`);
-      });
-
-      console.log("\n" + "=".repeat(60));
-      console.log("✅ Quiz ready to take!\n");
     }
   }, [currentUser, goalId, navigate, quiz]);
 

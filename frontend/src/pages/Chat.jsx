@@ -19,7 +19,6 @@ import { chatAPI } from "../services/apiService";
 import {
   Loader2,
   Send,
-  Home,
   MessageCircle,
   Bot,
   Sparkles,
@@ -122,7 +121,7 @@ export default function Chat() {
 
       setMessages([greetingMessage]);
     } catch (err) {
-      console.error("❌ Greeting error:", err);
+      console.error("Failed to load greeting:", err);
       // Fallback greeting if context loading fails
       setMessages([
         {
@@ -143,6 +142,8 @@ export default function Chat() {
   const handleSendMessage = async () => {
     if (!input.trim()) return;
 
+    const userInput = input;
+
     try {
       setError("");
       setLoading(true);
@@ -150,12 +151,11 @@ export default function Chat() {
       // Add user message to display immediately
       const userMessage = {
         role: "user",
-        content: input,
+        content: userInput,
         timestamp: new Date(),
       };
 
       setMessages((prev) => [...prev, userMessage]);
-      const userInput = input;
       setInput("");
 
       // Get ID token
@@ -181,7 +181,7 @@ export default function Chat() {
         );
       }
     } catch (err) {
-      console.error("❌ Chat error:", err);
+      console.error("Failed to send message:", err);
       setError(err.message || "Failed to send message");
 
       // Remove the last user message if there was an error
