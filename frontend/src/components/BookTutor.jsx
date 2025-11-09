@@ -155,7 +155,7 @@ export function BookTutor({ isOpen, onClose, userGoals = [] }) {
     <>
       {/* Modal Overlay */}
       <div
-        className="fixed inset-0 bg-black bg-opacity-50 z-[999] backdrop-blur-sm"
+        className="fixed inset-0 bg-gray-800 bg-opacity-50 z-[999] backdrop-blur-sm"
         onClick={handleClose}
       />
 
@@ -503,7 +503,7 @@ export function BookTutor({ isOpen, onClose, userGoals = [] }) {
         <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
           {/* Overlay */}
           <div
-            className="fixed inset-0 bg-black bg-opacity-50 z-[9999]"
+            className="fixed inset-0 bg-gray-800 bg-opacity-50 z-[9999]"
             onClick={() => setShowConfirmation(false)}
           />
 

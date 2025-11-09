@@ -240,7 +240,7 @@ export default function Recommendations() {
           </div>
 
           {/* Recommendations Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {recommendations.map((rec, idx) => (
               <div
                 key={idx}
@@ -255,57 +255,6 @@ export default function Recommendations() {
                 />
               </div>
             ))}
-          </div>
-
-          {/* Bottom CTA */}
-          <div className="mb-12 animate-in fade-in slide-in-from-bottom duration-500 delay-300">
-            <Card className="border-2 border-indigo-200 dark:border-indigo-700 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20">
-              <CardContent className="pt-8 pb-8">
-                <div className="flex items-start gap-4">
-                  <div className="flex-shrink-0">
-                    <Check className="w-6 h-6 text-green-600 mt-1" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                      Pick a subject to continue your journey
-                    </h3>
-                    <p className="text-gray-600 dark:text-gray-400">
-                      Each recommendation builds on what you've already learned,
-                      helping you progress through a structured learning path.
-                      Start with any subject that interests you!
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Quick Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-center animate-in fade-in duration-500 delay-500">
-            <div className="p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 dark:border-slate-700">
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                Recommendations
-              </p>
-              <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-                {recommendations.length}
-              </p>
-            </div>
-            <div className="p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 dark:border-slate-700">
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                Difficulty
-              </p>
-              <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                Progressive
-              </p>
-            </div>
-            <div className="p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 dark:border-slate-700">
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                Time to Start
-              </p>
-              <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                Now!
-              </p>
-            </div>
           </div>
         </div>
       </div>
@@ -348,7 +297,7 @@ function RecommendationCard({
 
   return (
     <Card
-      className={`border-2 ${borderColorMap[index]} hover:shadow-lg transition-all duration-300 overflow-hidden group cursor-pointer`}
+      className={`border-2 ${borderColorMap[index]} hover:shadow-lg transition-all duration-300 overflow-hidden group cursor-pointer h-full flex flex-col`}
     >
       {/* Header with Icon */}
       <div
@@ -376,14 +325,14 @@ function RecommendationCard({
         </CardDescription>
       </CardHeader>
 
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 flex-grow flex flex-col">
         {/* Description */}
         <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
           {recommendation.description}
         </p>
 
         {/* Reason */}
-        <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border border-indigo-200 dark:border-indigo-700 rounded-lg p-3">
+        <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border border-indigo-200 dark:border-indigo-700 rounded-lg p-3 flex-grow">
           <p className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 mb-1 flex items-center gap-1">
             <Lightbulb className="w-3 h-3" />
             Why this next?
@@ -397,7 +346,7 @@ function RecommendationCard({
         <Button
           onClick={onStartLearning}
           disabled={isLoading}
-          className={`w-full mt-4 bg-gradient-to-r ${colorMap[index]} hover:shadow-lg transition-all text-white font-semibold py-2 flex items-center justify-center gap-2`}
+          className={`w-full mt-auto bg-gradient-to-r ${colorMap[index]} hover:shadow-lg transition-all text-white font-semibold py-2 flex items-center justify-center gap-2`}
         >
           {isLoading ? (
             <>

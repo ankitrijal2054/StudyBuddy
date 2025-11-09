@@ -257,7 +257,7 @@ export default function Chat() {
   return (
     <>
       <Navbar />
-      <div className="h-[calc(100vh-64px)] bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-slate-950 dark:via-slate-900 dark:to-purple-950 flex flex-col overflow-hidden">
+      <div className="h-[calc(100vh-64px)] bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex flex-col overflow-hidden">
         <div className="max-w-4xl mx-auto w-full flex-1 flex flex-col p-4 md:p-6 overflow-hidden">
           {/* Header */}
           <div className="mb-6 flex items-center justify-between animate-slide-down flex-shrink-0">
@@ -294,26 +294,12 @@ export default function Chat() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {goals.length > 0 && (
-                <button
-                  onClick={() => setIsBookTutorOpen(true)}
-                  className="px-4 py-1.5 text-xs font-medium bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:opacity-90 rounded-lg transition-all flex items-center gap-1.5 shadow-md"
-                >
-                  <Users className="w-4 h-4" />
-                  Book Tutor
-                </button>
-              )}
               <button
                 onClick={handleClearChat}
                 className="px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
               >
                 Clear Chat
               </button>
-              <div className="text-right hidden sm:block">
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {contextLoading ? "Loading..." : "Ready to help"}
-                </p>
-              </div>
             </div>
           </div>
 
@@ -326,7 +312,7 @@ export default function Chat() {
                     <Sparkles className="w-8 h-8 text-white" />
                   </div>
                   <p className="text-gray-600 dark:text-gray-400 text-lg font-medium">
-                    Loading your personalized greeting...
+                    Firing up the AI...
                   </p>
                 </div>
               </div>

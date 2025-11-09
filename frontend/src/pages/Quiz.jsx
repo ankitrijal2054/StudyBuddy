@@ -113,6 +113,18 @@ export default function Quiz() {
     }
   }, [quiz]);
 
+  // Log quiz answers whenever quiz data is available
+  useEffect(() => {
+    if (quiz && quiz.questions && quiz.questions.length > 0) {
+      console.log("📝 Quiz Answers (for debugging):");
+      quiz.questions.forEach((q, idx) => {
+        console.log(`Question ${idx + 1}: ${q.question}`);
+        console.log(`Correct Answer: ${q.correct_answer}`);
+        console.log("---");
+      });
+    }
+  }, [quiz]);
+
   // Save answers to localStorage whenever they change
   useEffect(() => {
     try {
