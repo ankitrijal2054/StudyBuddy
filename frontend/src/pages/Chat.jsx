@@ -14,6 +14,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Navbar } from "../components/Navbar";
+import { BookTutor } from "../components/BookTutor";
 import { useNavigate, useLocation } from "react-router-dom";
 import { chatAPI } from "../services/apiService";
 import {
@@ -24,7 +25,10 @@ import {
   Sparkles,
   BookOpen,
   ArrowLeft,
+  Users,
 } from "lucide-react";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { db } from "../firebase";
 
 export default function Chat() {
   const { currentUser } = useAuth();
@@ -58,6 +62,9 @@ export default function Chat() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [contextLoading, setContextLoading] = useState(true);
+  const [isBookTutorOpen, setIsBookTutorOpen] = useState(false);
+  const [goals, setGoals] = useState([]);
+  const [showBookTutorSuggestion, setShowBookTutorSuggestion] = useState(false);
 
   // Save messages to localStorage whenever they change
   useEffect(() => {
@@ -83,6 +90,31 @@ export default function Chat() {
       navigate("/login");
     }
   }, [currentUser, navigate]);
+
+  // Load user's goals for tutor booking
+  useEffect(() => {
+    if (!currentUser) return;
+
+    try {
+      const goalsQuery = query(
+        collection(db, "goals"),
+        where("student_id", "==", currentUser.uid),
+        where("status", "!=", "completed")
+      );
+
+      const unsubscribe = onSnapshot(goalsQuery, (snapshot) => {
+        const goalsData = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setGoals(goalsData);
+      });
+
+      return () => unsubscribe();
+    } catch (error) {
+      console.error("Error loading goals:", error);
+    }
+  }, [currentUser]);
 
   // Load initial greeting on mount (only if no saved messages)
   useEffect(() => {
@@ -176,9 +208,7 @@ export default function Chat() {
 
       // Show handoff suggestion if needed
       if (data.metadata.handoff_suggested) {
-        setError(
-          "💡 Pro Tip: I think a tutor could help you even better with this. Consider booking a session!"
-        );
+        setShowBookTutorSuggestion(true);
       }
     } catch (err) {
       console.error("Failed to send message:", err);
@@ -264,6 +294,15 @@ export default function Chat() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {goals.length > 0 && (
+                <button
+                  onClick={() => setIsBookTutorOpen(true)}
+                  className="px-4 py-1.5 text-xs font-medium bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:opacity-90 rounded-lg transition-all flex items-center gap-1.5 shadow-md"
+                >
+                  <Users className="w-4 h-4" />
+                  Book Tutor
+                </button>
+              )}
               <button
                 onClick={handleClearChat}
                 className="px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
@@ -360,11 +399,39 @@ export default function Chat() {
             <div ref={messagesEndRef} />
           </div>
 
+          {/* Book Tutor Suggestion Alert */}
+          {showBookTutorSuggestion && (
+            <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 border border-blue-200 dark:border-blue-700 rounded-xl text-sm animate-slide-down flex-shrink-0">
+              <div className="flex items-start justify-between">
+                <div className="flex items-start flex-1">
+                  <span className="mr-3 text-lg">✨</span>
+                  <div>
+                    <p className="text-blue-800 dark:text-blue-200 font-medium">
+                      I think a tutor could help you even better with this!
+                    </p>
+                    <p className="text-blue-700 dark:text-blue-300 text-xs mt-1">
+                      Get personalized one-on-one help from our expert tutors.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setIsBookTutorOpen(true);
+                    setShowBookTutorSuggestion(false);
+                  }}
+                  className="ml-4 px-3 py-1.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-xs font-medium rounded-lg hover:opacity-90 transition-opacity whitespace-nowrap"
+                >
+                  Book Now
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Error Alert */}
-          {error && (
-            <div className="p-4 bg-gradient-to-r from-yellow-50 to-amber-50 dark:from-yellow-900/30 dark:to-amber-900/30 border border-yellow-200 dark:border-yellow-700 rounded-xl text-sm text-yellow-800 dark:text-yellow-200 animate-slide-down flex-shrink-0">
+          {error && !showBookTutorSuggestion && (
+            <div className="p-4 bg-gradient-to-r from-red-50 to-red-50 dark:from-red-900/30 dark:to-red-900/30 border border-red-200 dark:border-red-700 rounded-xl text-sm text-red-800 dark:text-red-200 animate-slide-down flex-shrink-0">
               <div className="flex items-start">
-                <span className="mr-3 text-lg">💡</span>
+                <span className="mr-3 text-lg">❌</span>
                 <span>{error}</span>
               </div>
             </div>
@@ -400,6 +467,13 @@ export default function Chat() {
             </p>
           </div>
         </div>
+
+        {/* Book Tutor Modal */}
+        <BookTutor
+          isOpen={isBookTutorOpen}
+          onClose={() => setIsBookTutorOpen(false)}
+          userGoals={goals}
+        />
       </div>
     </>
   );

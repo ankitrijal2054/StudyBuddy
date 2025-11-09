@@ -836,6 +836,119 @@ exports.recommendationsGenerate = functions.https.onRequest(
 );
 
 // ============================================================================
+// HTTP ENDPOINTS: TEST NUDGE EMAIL
+// ============================================================================
+
+/**
+ * POST /api/test-nudge
+ * Send a test nudge email to the current user
+ * Used for testing the nudge system during development
+ */
+exports.testNudge = functions.https.onRequest(async (req, res) => {
+  // Set CORS headers FIRST before any other response
+  const origin = req.headers.origin;
+  res.set("Access-Control-Allow-Origin", origin || "*");
+  res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.set("Access-Control-Allow-Credentials", "true");
+
+  // Handle preflight request
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+
+  if (req.method !== "POST") {
+    res.status(405).json({ error: "Method not allowed" });
+    return;
+  }
+
+  try {
+    // Validate token
+    const user = await validateToken(req);
+    console.log(`\n📧 Test nudge requested by user: ${user.uid}`);
+
+    // Get student profile
+    const db = admin.firestore();
+    const studentDoc = await db.collection("students").doc(user.uid).get();
+
+    if (!studentDoc.exists) {
+      console.error(`   ❌ Student profile not found for UID: ${user.uid}`);
+      return res.status(404).json({ error: "Student profile not found" });
+    }
+
+    const student = studentDoc.data();
+    const config = getConfig();
+
+    if (!config.sendgridKey) {
+      console.error("   ❌ SendGrid API key not configured");
+      return res.status(500).json({
+        error: "SendGrid not configured",
+        message:
+          "Email service is not available. Please set SENDGRID_API_KEY in Firebase config.",
+      });
+    }
+
+    try {
+      // Import SendGrid
+      const sgMail = require("@sendgrid/mail");
+      sgMail.setApiKey(config.sendgridKey);
+
+      // Send test email
+      const msg = {
+        to: student.email,
+        from: "ankitrijal2054@gmail.com",
+        subject: "[TEST] Time to Study! 🚀",
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #1f2937; margin-bottom: 16px;">Time to Study! 🚀</h2>
+            <p style="color: #4b5563; line-height: 1.6; margin-bottom: 12px;">
+              Hi ${student.name},
+            </p>
+            <p style="color: #4b5563; line-height: 1.6; margin-bottom: 12px;">
+              This is a <strong>test nudge email</strong> to verify the nudge system is working correctly.
+            </p>
+            <p style="color: #4b5563; line-height: 1.6; margin-bottom: 12px;">
+              Keep up the great learning! 💪
+            </p>
+            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;">
+            <p style="color: #9ca3af; font-size: 12px;">
+              This is a test email. If you did not request this, please ignore it.
+            </p>
+          </div>
+        `,
+      };
+
+      await sgMail.send(msg);
+      console.log(`   ✅ Test nudge email sent to: ${student.email}`);
+
+      res.status(200).json({
+        success: true,
+        message: "Test nudge email sent successfully",
+        recipient: student.email,
+      });
+    } catch (sendgridError) {
+      console.error(`❌ SendGrid Error: ${sendgridError.message}`);
+
+      // Return specific SendGrid error
+      res.status(500).json({
+        error: "Failed to send email via SendGrid",
+        message: sendgridError.message,
+        details:
+          "Check your SendGrid API key configuration and ensure it's valid.",
+      });
+    }
+  } catch (error) {
+    console.error(`❌ Test Nudge Error: ${error.message}`);
+
+    res.status(500).json({
+      error: "Test nudge request failed",
+      message: error.message,
+    });
+  }
+});
+
+// ============================================================================
 // HEALTH CHECK
 // ============================================================================
 

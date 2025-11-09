@@ -16,6 +16,7 @@ import {
   Clock,
   CheckCircle,
   Plus,
+  Mail,
 } from "lucide-react";
 import { db } from "../firebase";
 import {
@@ -35,6 +36,8 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import toast from "react-hot-toast";
+import { testNudgeAPI } from "../services/apiService";
 
 export default function Dashboard() {
   const { currentUser, studentProfile } = useAuth();
@@ -44,6 +47,7 @@ export default function Dashboard() {
     location.state?.showTopicSelector || false
   );
   const [createGoalMode, setCreateGoalMode] = useState(false);
+  const [testNudgeLoading, setTestNudgeLoading] = useState(false);
 
   // Real-time data state
   const [goals, setGoals] = useState([]);
@@ -215,6 +219,28 @@ export default function Dashboard() {
       color: "from-purple-600 to-pink-600",
     },
   ];
+
+  // Test nudge email function
+  const handleTestNudge = async () => {
+    try {
+      setTestNudgeLoading(true);
+      const idToken = await currentUser.getIdToken();
+
+      // Call the test nudge API
+      const response = await testNudgeAPI.sendTestNudge(idToken);
+
+      if (response.success) {
+        toast.success("✅ Test nudge email sent!");
+      } else {
+        toast.error(response.error || "Failed to send test nudge");
+      }
+    } catch (error) {
+      console.error("Test nudge error:", error);
+      toast.error(error.message || "Error sending test nudge");
+    } finally {
+      setTestNudgeLoading(false);
+    }
+  };
 
   return (
     <>
@@ -423,13 +449,13 @@ export default function Dashboard() {
                       style={{ animationDelay: `${idx * 0.1}s` }}
                     >
                       <div className="h-0.5 sm:h-1 bg-gradient-to-r from-blue-600 to-purple-600"></div>
-                      <div className="p-4 sm:p-5 md:p-6">
-                        <div className="flex items-start justify-between gap-2 mb-4">
+                      <div className="p-3 sm:p-4 md:p-5">
+                        <div className="flex items-start justify-between gap-2 mb-3">
                           <div className="min-w-0 flex-1">
-                            <h3 className="font-bold text-gray-900 dark:text-white text-base sm:text-lg break-words">
+                            <h3 className="font-bold text-gray-900 dark:text-white text-sm sm:text-base break-words">
                               {goal.subject}
                             </h3>
-                            <p className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm break-words">
+                            <p className="text-gray-600 dark:text-gray-400 text-xs break-words">
                               {goal.goal}
                             </p>
                           </div>
@@ -440,16 +466,16 @@ export default function Dashboard() {
 
                         {!isCompleted && (
                           <>
-                            <div className="mb-4">
-                              <div className="flex justify-between items-center gap-2 mb-2">
-                                <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">
+                            <div className="mb-3">
+                              <div className="flex justify-between items-center gap-2 mb-1.5">
+                                <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
                                   Progress
                                 </span>
-                                <span className="text-xs sm:text-sm font-bold text-blue-600 flex-shrink-0">
+                                <span className="text-xs font-bold text-blue-600 flex-shrink-0">
                                   {Math.round(progress)}%
                                 </span>
                               </div>
-                              <div className="w-full h-1.5 sm:h-2 bg-gray-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                              <div className="w-full h-1.5 bg-gray-200 dark:bg-slate-700 rounded-full overflow-hidden">
                                 <div
                                   className="h-full bg-gradient-to-r from-blue-600 to-purple-600 transition-all"
                                   style={{ width: `${progress}%` }}
@@ -468,7 +494,7 @@ export default function Dashboard() {
                                     },
                                   })
                                 }
-                                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm py-2"
+                                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs py-1.5"
                               >
                                 Chat
                               </Button>
@@ -481,7 +507,7 @@ export default function Dashboard() {
                                     },
                                   })
                                 }
-                                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white text-xs sm:text-sm py-2"
+                                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white text-xs py-1.5"
                               >
                                 Quiz
                               </Button>
@@ -490,8 +516,8 @@ export default function Dashboard() {
                         )}
 
                         {isCompleted && (
-                          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4 text-center">
-                            <p className="text-sm font-semibold text-green-700 dark:text-green-400">
+                          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-2.5 text-center">
+                            <p className="text-xs font-semibold text-green-700 dark:text-green-400">
                               ✨ Goal Completed!
                             </p>
                           </div>
@@ -511,15 +537,15 @@ export default function Dashboard() {
                   }}
                 >
                   <div className="h-0.5 sm:h-1 bg-gradient-to-r from-blue-600 to-purple-600"></div>
-                  <div className="p-4 sm:p-5 md:p-6 flex flex-col items-center justify-center h-full min-h-[240px] sm:min-h-[280px]">
-                    <div className="w-12 sm:w-14 md:w-16 h-12 sm:h-14 md:h-16 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 rounded-lg sm:rounded-xl lg:rounded-2xl flex items-center justify-center mb-4">
-                      <Plus className="w-6 sm:w-7 md:w-8 h-6 sm:h-7 md:h-8 text-blue-600 dark:text-blue-400" />
+                  <div className="p-3 sm:p-4 md:p-5 flex flex-col items-center justify-center">
+                    <div className="w-10 sm:w-12 md:w-14 h-10 sm:h-12 md:h-14 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 rounded-lg sm:rounded-xl flex items-center justify-center mb-2">
+                      <Plus className="w-5 sm:w-6 md:w-7 h-5 sm:h-6 md:h-7 text-blue-600 dark:text-blue-400" />
                     </div>
-                    <h3 className="font-bold text-gray-900 dark:text-white text-base sm:text-lg mb-2 text-center break-words">
-                      Add New Learning Goal
+                    <h3 className="font-bold text-gray-900 dark:text-white text-sm sm:text-base mb-1 text-center break-words">
+                      Add New Goal
                     </h3>
-                    <p className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm text-center">
-                      Start learning a new subject
+                    <p className="text-gray-600 dark:text-gray-400 text-xs text-center">
+                      Start learning
                     </p>
                   </div>
                 </div>
@@ -654,6 +680,19 @@ export default function Dashboard() {
         createGoalMode={createGoalMode}
         onCreateModeChange={(mode) => setCreateGoalMode(mode)}
       />
+
+      {/* Test Nudge Email Button */}
+      <button
+        onClick={handleTestNudge}
+        disabled={testNudgeLoading}
+        className="fixed bottom-6 right-6 p-3 bg-gradient-to-br from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all disabled:opacity-50 z-40 group"
+        title="Send Test Nudge Email"
+      >
+        <Mail className="w-5 h-5" />
+        {testNudgeLoading && (
+          <div className="absolute inset-0 border-2 border-transparent border-t-white rounded-full animate-spin" />
+        )}
+      </button>
     </>
   );
 }

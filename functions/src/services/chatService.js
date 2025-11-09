@@ -116,28 +116,81 @@ class ChatService {
 
   /**
    * Detect if message should trigger handoff to human tutor
+   *
+   * Triggers on:
+   * 1. Frustration keywords (confusion, asking for help)
+   * 2. Direct requests for tutor
+   * 3. Complex problem indicators (excessive question marks, multiple unclear concepts)
    */
   detectHandoff(userMessage) {
+    const messageLower = userMessage.toLowerCase();
+
+    // Frustration indicators - student is confused or frustrated
     const frustrationKeywords = [
       "i don't understand",
       "confused",
+      "confusing",
       "not making sense",
       "still don't get it",
       "help me",
-      "talk to a tutor",
       "need help",
       "stuck",
       "don't know",
       "lost",
+      "what?",
+      "huh?",
+      "can't figure",
+      "give up",
+      "frustrated",
+      "struggling",
+      "this is hard",
+      "too complicated",
+      "makes no sense",
     ];
 
-    const userFrustrated = frustrationKeywords.some((keyword) =>
-      userMessage.toLowerCase().includes(keyword)
+    // Direct tutor requests
+    const tutorKeywords = [
+      "talk to a tutor",
+      "book a tutor",
+      "need a tutor",
+      "real tutor",
+      "human teacher",
+      "human tutor",
+      "actual teacher",
+      "one-on-one",
+      "personal tutor",
+      "professional help",
+    ];
+
+    // Check for frustration
+    const hasFrustration = frustrationKeywords.some((keyword) =>
+      messageLower.includes(keyword)
     );
 
+    // Check for direct tutor request
+    const hasTutorRequest = tutorKeywords.some((keyword) =>
+      messageLower.includes(keyword)
+    );
+
+    // Check for complexity indicators
+    const questionMarkCount = (messageLower.match(/\?/g) || []).length;
+    const messageLength = userMessage.length;
+    const hasComplexity =
+      questionMarkCount >= 2 || (messageLength > 200 && questionMarkCount >= 1);
+
+    // Determine if handoff should trigger
+    const should_handoff = hasFrustration || hasTutorRequest || hasComplexity;
+
+    // Confidence score
+    let confidence = 0.2;
+    if (hasTutorRequest) confidence = 0.95;
+    else if (hasFrustration && hasComplexity) confidence = 0.85;
+    else if (hasFrustration) confidence = 0.75;
+    else if (hasComplexity) confidence = 0.65;
+
     return {
-      should_handoff: userFrustrated,
-      confidence: userFrustrated ? 0.8 : 0.2,
+      should_handoff,
+      confidence: should_handoff ? confidence : 0.1,
     };
   }
 

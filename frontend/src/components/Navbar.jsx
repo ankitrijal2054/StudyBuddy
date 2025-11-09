@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { BookTutor } from "./BookTutor";
 import {
   Menu,
   X,
@@ -12,13 +13,43 @@ import {
   MessageCircle,
   BookOpen,
   Lightbulb,
+  Users,
 } from "lucide-react";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { db } from "../firebase";
 
 export function Navbar() {
-  const { logout } = useAuth();
+  const { logout, currentUser } = useAuth();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [isDark, setIsDark] = useState(false);
+  const [isBookTutorOpen, setIsBookTutorOpen] = useState(false);
+  const [goals, setGoals] = useState([]);
+
+  // Load user's goals for tutor booking
+  useEffect(() => {
+    if (!currentUser) return;
+
+    try {
+      const goalsQuery = query(
+        collection(db, "goals"),
+        where("student_id", "==", currentUser.uid),
+        where("status", "!=", "completed")
+      );
+
+      const unsubscribe = onSnapshot(goalsQuery, (snapshot) => {
+        const goalsData = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setGoals(goalsData);
+      });
+
+      return () => unsubscribe();
+    } catch (error) {
+      console.error("Error loading goals:", error);
+    }
+  }, [currentUser]);
 
   const handleLogout = async () => {
     try {
@@ -79,6 +110,14 @@ export function Navbar() {
             >
               <Lightbulb className="w-4 h-4 mr-1" /> Recommendations
             </button>
+            {goals.length > 0 && (
+              <button
+                onClick={() => setIsBookTutorOpen(true)}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:opacity-90 transition-opacity flex items-center ml-2 shadow-md"
+              >
+                <Users className="w-4 h-4 mr-1" /> Book Tutor
+              </button>
+            )}
           </div>
 
           {/* Right side items */}
@@ -166,6 +205,19 @@ export function Navbar() {
             >
               <Lightbulb className="w-4 h-4 mr-2 inline" /> Recommendations
             </button>
+            {goals.length > 0 && (
+              <>
+                <button
+                  onClick={() => {
+                    setIsBookTutorOpen(true);
+                    setIsOpen(false);
+                  }}
+                  className="block w-full text-left px-4 py-2 text-sm font-medium bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:opacity-90 rounded-lg mb-2"
+                >
+                  <Users className="w-4 h-4 mr-2 inline" /> Book Tutor
+                </button>
+              </>
+            )}
             <hr className="my-2 dark:border-slate-700" />
             <button
               onClick={handleLogout}
@@ -175,6 +227,13 @@ export function Navbar() {
             </button>
           </div>
         )}
+
+        {/* Book Tutor Modal */}
+        <BookTutor
+          isOpen={isBookTutorOpen}
+          onClose={() => setIsBookTutorOpen(false)}
+          userGoals={goals}
+        />
       </div>
     </nav>
   );

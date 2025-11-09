@@ -149,6 +149,19 @@ export const recommendationsAPI = {
 };
 
 // ============================================================================
+// TEST NUDGE ENDPOINTS
+// ============================================================================
+
+export const testNudgeAPI = {
+  /**
+   * Send a test nudge email
+   */
+  async sendTestNudge(token) {
+    return apiCall("testNudge", "POST", {}, token);
+  },
+};
+
+// ============================================================================
 // UTILITIES
 // ============================================================================
 
@@ -170,5 +183,6 @@ export default {
   chat: chatAPI,
   quiz: quizAPI,
   recommendations: recommendationsAPI,
+  testNudge: testNudgeAPI,
   service: apiService,
 };
