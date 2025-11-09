@@ -109,7 +109,7 @@ export default function Dashboard() {
       const quizResultsQuery = query(
         collection(db, "quiz_results"),
         where("student_id", "==", currentUser.uid),
-        orderBy("completed_at", "desc"),
+        orderBy("created_at", "desc"),
         limit(10)
       );
 
@@ -118,15 +118,52 @@ export default function Dashboard() {
         (snapshot) => {
           const results = snapshot.docs.map((doc) => {
             const data = doc.data();
+
+            // Handle both Timestamp and string formats for date
+            let dateValue = "";
+            const timestamp = data.completed_at || data.created_at;
+            if (timestamp) {
+              try {
+                const dateObj =
+                  typeof timestamp.toDate === "function"
+                    ? timestamp.toDate()
+                    : new Date(timestamp);
+                dateValue = dateObj.toLocaleDateString();
+              } catch (e) {
+                console.error("Date parsing error:", e);
+              }
+            }
+
+            // Ensure score is a number and add debug log
+            const score =
+              typeof data.score === "number"
+                ? data.score
+                : parseInt(data.score) || 0;
+            console.log(
+              `Quiz result: score=${score}, data.score=${
+                data.score
+              }, type=${typeof data.score}`
+            );
+
             return {
               id: doc.id,
               ...data,
-              date: data.completed_at
-                ? new Date(data.completed_at.toDate()).toLocaleDateString()
-                : "",
-              score: Math.round(data.score || 0),
+              date: dateValue,
+              score: Math.round(score),
             };
           });
+
+          console.log(
+            "Quiz results loaded:",
+            results.length,
+            "Average:",
+            results.length > 0
+              ? Math.round(
+                  results.reduce((sum, r) => sum + r.score, 0) / results.length
+                )
+              : 0
+          );
+
           setQuizResults(results);
           setChartsLoading(false);
         },
