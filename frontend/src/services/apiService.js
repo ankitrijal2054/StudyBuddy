@@ -9,11 +9,13 @@
 // For local testing: http://localhost:5001/PROJECT_ID/us-central1
 // For production: https://us-central1-PROJECT_ID.cloudfunctions.net
 const getFunctionsUrl = () => {
-  const isDev = import.meta.env.DEV;
+  // Always use production backend for now (frontend-only development)
+  // Set VITE_USE_LOCAL_BACKEND=true in .env to use local emulator
+  const useLocalBackend = import.meta.env.VITE_USE_LOCAL_BACKEND === "true";
   const projectId =
-    import.meta.env.VITE_FIREBASE_PROJECT_ID || "study-buddy-ai";
+    import.meta.env.VITE_FIREBASE_PROJECT_ID || "study-buddy-28043";
 
-  if (isDev) {
+  if (useLocalBackend) {
     return "http://localhost:5001/" + projectId + "/us-central1";
   } else {
     return `https://us-central1-${projectId}.cloudfunctions.net`;
@@ -63,16 +65,59 @@ const apiCall = async (functionName, method = "GET", body = null, token) => {
 export const chatAPI = {
   /**
    * Get initial greeting and student context
+   * @param {string} token - Auth token
+   * @param {Array} contextGoals - Goals to use as context (optional)
+   * @param {string} contextMode - "single" or "all" (optional)
    */
-  async getInitialContext(token) {
-    return apiCall("chatInitialContext", "GET", null, token);
+  async getInitialContext(token, contextGoals = [], contextMode = "all") {
+    // Build query string for context information
+    const goalIds = contextGoals.map((g) => g.id).join(",");
+    const queryString =
+      goalIds || contextMode !== "all"
+        ? `?goal_ids=${goalIds}&context_mode=${contextMode}`
+        : "";
+
+    // Make GET request with query parameters
+    const url = `${FUNCTIONS_URL}/chatInitialContext${queryString}`;
+    const options = {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    };
+
+    if (token) {
+      options.headers.Authorization = `Bearer ${token}`;
+    }
+
+    const response = await fetch(url, options);
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(
+        errorData.message ||
+          errorData.error ||
+          `API call failed: ${response.statusText}`
+      );
+    }
+
+    return await response.json();
   },
 
   /**
    * Send a message and get AI response
+   * @param {string} message - User message
+   * @param {string} token - Auth token
+   * @param {Array} contextGoals - Goals to use as context (optional)
+   * @param {string} contextMode - "single" or "all" (optional)
    */
-  async sendMessage(message, token) {
-    return apiCall("chat", "POST", { message }, token);
+  async sendMessage(message, token, contextGoals = [], contextMode = "all") {
+    return apiCall(
+      "chat",
+      "POST",
+      { message, context_goals: contextGoals, context_mode: contextMode },
+      token
+    );
   },
 
   /**

@@ -266,10 +266,13 @@ exports.chat = functions.https.onRequest(async (req, res) => {
 
   try {
     const user = await validateToken(req);
-    const { message } = req.body;
+    const { message, context_goals = [], context_mode = "all" } = req.body;
     const studentId = user.uid;
 
     console.log(`\n📨 Chat request from student: ${studentId}`);
+    console.log(
+      `   Context: mode=${context_mode}, goals=${context_goals.length}`
+    );
 
     // Validate input
     if (
@@ -290,6 +293,54 @@ exports.chat = functions.https.onRequest(async (req, res) => {
       });
     }
 
+    // Extract subject/context information from goals for RAG filtering
+    let ragContext = null;
+    if (context_goals && context_goals.length > 0) {
+      console.log(`   📋 Goal context received:`);
+      context_goals.forEach((g, idx) => {
+        console.log(
+          `      ${idx + 1}. subject=${g.subject}, id=${g.id}, title=${g.title}`
+        );
+      });
+
+      if (context_mode === "single" && context_goals.length === 1) {
+        // Single goal mode - focus RAG on that subject
+        ragContext = {
+          subject: context_goals[0].subject,
+          goal_id: context_goals[0].id,
+          goal_title: context_goals[0].title || context_goals[0].goal,
+          mode: "single",
+        };
+        console.log(
+          `   ✅ RAG Context: Single goal - subject="${ragContext.subject}"`
+        );
+      } else if (context_mode === "all" && context_goals.length > 1) {
+        // Multiple goals mode - use all subjects for RAG
+        const subjects = context_goals.map((g) => g.subject).filter(Boolean);
+        ragContext = {
+          subjects: subjects,
+          goal_ids: context_goals.map((g) => g.id),
+          mode: "all",
+        };
+        console.log(
+          `   ✅ RAG Context: Multiple goals - ${subjects.join(", ")}`
+        );
+      } else if (context_goals.length === 1) {
+        // Single goal even if not explicitly in single mode
+        ragContext = {
+          subject: context_goals[0].subject,
+          goal_id: context_goals[0].id,
+          goal_title: context_goals[0].title || context_goals[0].goal,
+          mode: "single",
+        };
+        console.log(
+          `   ✅ RAG Context: Single goal - subject="${ragContext.subject}"`
+        );
+      }
+    } else {
+      console.log(`   ⚠️  No goal context provided`);
+    }
+
     // Initialize chat service
     const config = getConfig();
     const chatService = new ChatService(
@@ -298,8 +349,8 @@ exports.chat = functions.https.onRequest(async (req, res) => {
       "study-buddy-28043"
     );
 
-    // Process chat
-    const result = await chatService.chat(studentId, message);
+    // Process chat with RAG context
+    const result = await chatService.chat(studentId, message, ragContext);
 
     res.status(200).json({
       success: true,
@@ -351,7 +402,18 @@ exports.chatInitialContext = functions.https.onRequest(async (req, res) => {
     const user = await validateToken(req);
     const studentId = user.uid;
 
+    // Parse context parameters from query string
+    const goalIdsParam = req.query.goal_ids || "";
+    const contextMode = req.query.context_mode || "all";
+    const contextGoalIds = goalIdsParam
+      .split(",")
+      .filter((id) => id.trim())
+      .map((id) => id.trim());
+
     console.log(`📋 Loading initial context for student: ${studentId}`);
+    console.log(
+      `   Context: mode=${contextMode}, goal_ids=${contextGoalIds.join(", ")}`
+    );
 
     const db = admin.firestore();
     const studentDoc = await db.collection("students").doc(studentId).get();
@@ -367,7 +429,23 @@ exports.chatInitialContext = functions.https.onRequest(async (req, res) => {
     const name = student.name || "there";
     console.log(`   ✅ Found student: ${name}`);
 
-    // Get current active goal
+    // Fetch context goals if provided
+    let contextGoals = [];
+    if (contextGoalIds.length > 0) {
+      try {
+        for (const goalId of contextGoalIds) {
+          const goalDoc = await db.collection("goals").doc(goalId).get();
+          if (goalDoc.exists) {
+            contextGoals.push({ id: goalDoc.id, ...goalDoc.data() });
+          }
+        }
+        console.log(`   ✅ Loaded ${contextGoals.length} context goals`);
+      } catch (error) {
+        console.warn(`   Could not fetch context goals: ${error.message}`);
+      }
+    }
+
+    // Get current active goal (for fallback if no context goals provided)
     let currentGoal = null;
     let goalProgress = 0;
     try {
@@ -376,14 +454,20 @@ exports.chatInitialContext = functions.https.onRequest(async (req, res) => {
         .where("student_id", "==", studentId)
         .get();
 
-      console.log(`   Found ${goalsSnapshot.size} goals for student`);
+      console.log(`   Found ${goalsSnapshot.size} total goals for student`);
 
       const activeGoals = goalsSnapshot.docs
-        .map((doc) => doc.data())
+        .map((doc) => ({ id: doc.id, ...doc.data() }))
         .filter((goal) => goal.status === "active" || !goal.status);
 
       if (activeGoals.length > 0) {
-        currentGoal = activeGoals[0];
+        // Use first context goal if provided, otherwise use first active goal
+        if (contextGoals.length > 0) {
+          currentGoal = contextGoals[0];
+        } else {
+          currentGoal = activeGoals[0];
+        }
+
         goalProgress =
           currentGoal.progress ||
           currentGoal.completion_percentage ||
@@ -401,22 +485,45 @@ exports.chatInitialContext = functions.https.onRequest(async (req, res) => {
       console.warn(`   Could not fetch goals: ${error.message}`);
     }
 
-    // Get last session transcripts
+    // Get last session transcripts (filtered by context goals if provided)
     let recentSessions = [];
     try {
-      const sessionsSnapshot = await db
+      let sessionsQuery = db
         .collection("session_transcripts")
-        .where("student_id", "==", studentId)
-        .get();
+        .where("student_id", "==", studentId);
 
-      console.log(`   Found ${sessionsSnapshot.size} session transcripts`);
+      // Filter by goal_id if specific goals are provided
+      if (contextGoalIds.length > 0) {
+        // Note: Firestore doesn't support OR queries with where easily,
+        // so we'll fetch all and filter in code
+        const sessionsSnapshot = await sessionsQuery.get();
+        const allSessions = sessionsSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
 
-      recentSessions = sessionsSnapshot.docs
-        .map((doc) => ({
-          subject: doc.data().subject,
-          topics: doc.data().topics || [],
-          date: doc.data().date,
-        }))
+        recentSessions = allSessions
+          .filter((session) =>
+            contextGoalIds.includes(session.goal_id || session.goalId)
+          )
+          .map((doc) => ({
+            subject: doc.subject,
+            topics: doc.topics || [],
+            date: doc.date,
+            goalId: doc.goal_id || doc.goalId,
+          }));
+      } else {
+        const sessionsSnapshot = await sessionsQuery.get();
+        recentSessions = sessionsSnapshot.docs.map((doc) => ({
+          subject: doc.subject,
+          topics: doc.topics || [],
+          date: doc.date,
+          goalId: doc.data().goal_id || doc.data().goalId,
+        }));
+      }
+
+      // Sort and slice
+      recentSessions = recentSessions
         .sort((a, b) => {
           const dateA = a.date?.toDate?.() || new Date(a.date);
           const dateB = b.date?.toDate?.() || new Date(b.date);
@@ -429,29 +536,67 @@ exports.chatInitialContext = functions.https.onRequest(async (req, res) => {
       console.warn(`   Could not fetch sessions: ${error.message}`);
     }
 
-    // Generate greeting
+    // Generate context-aware greeting
     let greeting = `Hey ${name}! 👋 `;
 
-    if (recentSessions.length > 0) {
+    if (contextMode === "single" && contextGoals.length === 1) {
+      // Single goal mode - focus on that specific goal
+      const goal = contextGoals[0];
+      const goalName = goal.title || goal.goal || goal.subject || "Learning";
+      const goalProgress =
+        goal.progress ||
+        goal.completion_percentage ||
+        goal.percent_complete ||
+        0;
+
+      greeting += `Let's focus on ${goalName}. You're ${goalProgress}% complete. `;
+
+      // Find related session
+      const relatedSession = recentSessions.find((s) => s.goalId === goal.id);
+      if (relatedSession) {
+        const topics = relatedSession.topics?.slice(0, 2).join(", ");
+        if (topics) {
+          greeting += `What questions do you have about ${topics}?`;
+        } else {
+          greeting += `What would you like to work on?`;
+        }
+      } else {
+        greeting += `What would you like to understand better?`;
+      }
+    } else if (contextMode === "all" && contextGoals.length > 1) {
+      // All goals mode - mention multiple goals
+      const goalNames = contextGoals
+        .map((g) => g.subject || g.title || g.goal || "Learning")
+        .join(", ");
+      greeting += `I see you're working on ${contextGoals.length} active goals: ${goalNames}. `;
+      greeting += `Which topic would you like to explore today?`;
+    } else if (recentSessions.length > 0) {
+      // Fallback: use recent session info
       const lastSession = recentSessions[0];
       greeting += `How was your recent session on ${lastSession.subject}? `;
-    }
 
-    if (currentGoal) {
+      if (currentGoal) {
+        const goalName =
+          currentGoal.title ||
+          currentGoal.goal ||
+          currentGoal.subject ||
+          "your learning";
+        greeting += `You're making great progress on **${goalName}** (${goalProgress}% complete). `;
+        greeting += `How can I help you today? `;
+
+        const topics =
+          lastSession.topics?.slice(0, 2).join(", ") || "the topics";
+        greeting += `Want to dive deeper into ${topics}?`;
+      }
+    } else if (currentGoal) {
+      // Fallback: use current goal info
       const goalName =
         currentGoal.title ||
         currentGoal.goal ||
         currentGoal.subject ||
         "your learning";
       greeting += `You're making great progress on **${goalName}** (${goalProgress}% complete). `;
-      greeting += `How can I help you today? `;
-
-      if (recentSessions.length > 0) {
-        const lastSession = recentSessions[0];
-        const topics =
-          lastSession.topics?.slice(0, 2).join(", ") || "the topics";
-        greeting += `Want to dive deeper into ${topics}?`;
-      }
+      greeting += `How can I help you today?`;
     } else {
       greeting += `What would you like to work on today?`;
     }

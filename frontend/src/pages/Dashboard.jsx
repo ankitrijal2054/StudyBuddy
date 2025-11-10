@@ -373,7 +373,14 @@ export default function Dashboard() {
             {/* Chat Card */}
             <div
               className="relative overflow-hidden rounded-lg sm:rounded-xl lg:rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-600 p-0.5 sm:p-1 cursor-pointer group hover:scale-105 transition-transform animate-slide-up"
-              onClick={() => navigate("/chat")}
+              onClick={() => {
+                const activeGoals = goals.filter(
+                  (g) => g.status !== "completed"
+                );
+                navigate("/chat", {
+                  state: { contextMode: "all", contextGoals: activeGoals },
+                });
+              }}
               style={{ animationDelay: "0.2s" }}
             >
               <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 to-cyan-600/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
@@ -525,6 +532,8 @@ export default function Dashboard() {
                                 onClick={() =>
                                   navigate("/chat", {
                                     state: {
+                                      contextMode: "single",
+                                      contextGoals: [goal],
                                       goalId: goal.id,
                                       goal: goal,
                                       subject: goal.subject,

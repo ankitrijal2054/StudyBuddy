@@ -9,7 +9,7 @@
  * Modern Nerdy-inspired design with smooth animations
  */
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -36,29 +36,15 @@ export default function Chat() {
   const location = useLocation();
   const messagesEndRef = useRef(null);
 
-  // Get goal context from navigation state (when clicked from dashboard goal card)
-  const goalContext = location.state?.goal;
-  const goalSubject = location.state?.subject || goalContext?.subject;
+  // Get goal context from navigation state
+  const contextMode = location.state?.contextMode || "all"; // "all" or "single"
+  const contextGoals = useMemo(
+    () => location.state?.contextGoals || [],
+    [location.state?.contextGoals]
+  );
 
-  const [messages, setMessages] = useState(() => {
-    // Try to load messages from localStorage on mount
-    try {
-      const saved = localStorage.getItem("chat_messages");
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      console.error("Failed to load chat messages:", e);
-      return [];
-    }
-  });
-  const [input, setInput] = useState(() => {
-    // Try to load input from localStorage on mount
-    try {
-      return localStorage.getItem("chat_input") || "";
-    } catch (e) {
-      console.error("Failed to load chat input:", e);
-      return "";
-    }
-  });
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [contextLoading, setContextLoading] = useState(true);
@@ -66,23 +52,78 @@ export default function Chat() {
   const [goals, setGoals] = useState([]);
   const [showBookTutorSuggestion, setShowBookTutorSuggestion] = useState(false);
 
-  // Save messages to localStorage whenever they change
-  useEffect(() => {
+  /**
+   * Load initial context and display greeting
+   */
+  const loadInitialGreeting = useCallback(async () => {
+    if (!currentUser) return;
     try {
-      localStorage.setItem("chat_messages", JSON.stringify(messages));
-    } catch (e) {
-      console.error("Failed to save chat messages:", e);
-    }
-  }, [messages]);
+      console.log("loadInitialGreeting called - fetching from backend", {
+        contextMode,
+        contextGoalsCount: contextGoals.length,
+      });
+      setContextLoading(true);
+      const idToken = await currentUser.getIdToken();
 
-  // Save input to localStorage whenever it changes
-  useEffect(() => {
-    try {
-      localStorage.setItem("chat_input", input);
-    } catch (e) {
-      console.error("Failed to save chat input:", e);
+      // Pass context goals to initial context endpoint
+      const data = await chatAPI.getInitialContext(
+        idToken,
+        contextGoals,
+        contextMode
+      );
+
+      // Add greeting as first message
+      const greetingMessage = {
+        role: "assistant",
+        content: data.greeting,
+        timestamp: new Date(),
+        isGreeting: true,
+      };
+
+      console.log("Setting greeting message:", greetingMessage);
+      setMessages([greetingMessage]);
+    } catch (err) {
+      console.error("Failed to load greeting:", err);
+      // Fallback greeting if context loading fails
+      const fallbackMessage = {
+        role: "assistant",
+        content: "👋 Hey there! What would you like to work on today?",
+        timestamp: new Date(),
+        isGreeting: true,
+      };
+      console.log("Setting fallback greeting:", fallbackMessage);
+      setMessages([fallbackMessage]);
+    } finally {
+      setContextLoading(false);
     }
-  }, [input]);
+  }, [currentUser, contextGoals, contextMode]);
+
+  // Reset chat when component mounts or when navigating to chat
+  useEffect(() => {
+    // Clear any previous chat session when returning to chat
+    setMessages([]);
+    setInput("");
+    setError("");
+
+    // Also clear any old localStorage entries just in case
+    try {
+      localStorage.removeItem("chat_messages");
+      localStorage.removeItem("chat_input");
+    } catch (e) {
+      console.warn("Could not clear localStorage:", e);
+    }
+
+    // Clear entire localStorage keys that might contain chat data
+    const keysToCheck = Object.keys(localStorage);
+    keysToCheck.forEach((key) => {
+      if (
+        key.toLowerCase().includes("chat") ||
+        key.toLowerCase().includes("message")
+      ) {
+        localStorage.removeItem(key);
+      }
+    });
+  }, []);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -116,57 +157,28 @@ export default function Chat() {
     }
   }, [currentUser]);
 
-  // Load initial greeting on mount (only if no saved messages)
+  // Load initial greeting on mount (only if no messages)
   useEffect(() => {
+    console.log(
+      "Greeting effect triggered - messages.length:",
+      messages.length
+    );
     if (currentUser) {
-      // Only load greeting if there are no saved messages
+      // Only load greeting if there are no messages
       if (messages.length === 0) {
+        console.log("Loading initial greeting...");
         loadInitialGreeting();
       } else {
+        console.log("Messages exist, not loading greeting");
         setContextLoading(false);
       }
     }
-  }, [currentUser]);
+  }, [currentUser, messages.length, loadInitialGreeting]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  /**
-   * Load initial context and display greeting
-   */
-  const loadInitialGreeting = async () => {
-    try {
-      setContextLoading(true);
-      const idToken = await currentUser.getIdToken();
-
-      const data = await chatAPI.getInitialContext(idToken);
-
-      // Add greeting as first message
-      const greetingMessage = {
-        role: "assistant",
-        content: data.greeting,
-        timestamp: new Date(),
-        isGreeting: true,
-      };
-
-      setMessages([greetingMessage]);
-    } catch (err) {
-      console.error("Failed to load greeting:", err);
-      // Fallback greeting if context loading fails
-      setMessages([
-        {
-          role: "assistant",
-          content: "👋 Hey there! What would you like to work on today?",
-          timestamp: new Date(),
-          isGreeting: true,
-        },
-      ]);
-    } finally {
-      setContextLoading(false);
-    }
-  };
 
   /**
    * Send message and get AI response
@@ -193,8 +205,13 @@ export default function Chat() {
       // Get ID token
       const idToken = await currentUser.getIdToken();
 
-      // Call chat endpoint
-      const data = await chatAPI.sendMessage(userInput, idToken);
+      // Call chat endpoint with context goals
+      const data = await chatAPI.sendMessage(
+        userInput,
+        idToken,
+        contextGoals,
+        contextMode
+      );
 
       // Add AI response
       const aiMessage = {
@@ -238,15 +255,9 @@ export default function Chat() {
         "Are you sure you want to clear all messages? This cannot be undone."
       )
     ) {
-      try {
-        localStorage.removeItem("chat_messages");
-        localStorage.removeItem("chat_input");
-        setMessages([]);
-        setInput("");
-        loadInitialGreeting();
-      } catch (e) {
-        console.error("Failed to clear chat:", e);
-      }
+      setMessages([]);
+      setInput("");
+      loadInitialGreeting();
     }
   };
 
@@ -277,18 +288,6 @@ export default function Chat() {
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
                       Study Companion
                     </h1>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {goalSubject ? (
-                        <>
-                          Learning:{" "}
-                          <span className="font-semibold text-blue-600 dark:text-blue-400">
-                            {goalSubject}
-                          </span>
-                        </>
-                      ) : (
-                        "Powered by AI • Always Learning"
-                      )}
-                    </p>
                   </div>
                 </div>
               </div>

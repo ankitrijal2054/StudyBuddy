@@ -81,32 +81,122 @@ class ChatService {
 
   /**
    * Retrieve RAG context from Pinecone
+   * @param {string} studentId - Student ID
+   * @param {string} userMessage - User message to embed
+   * @param {object} goalContext - Optional goal context with subject/goal_ids for filtering
    */
-  async retrieveContext(studentId, userMessage) {
+  async retrieveContext(studentId, userMessage, goalContext = null) {
     try {
-      console.log(
-        `   🔍 Retrieving context for: "${userMessage.substring(0, 50)}..."`
-      );
+      let contextMsg = `"${userMessage.substring(0, 50)}..."`;
+      if (goalContext) {
+        if (goalContext.mode === "single") {
+          contextMsg += ` [Focus: ${goalContext.subject}]`;
+        } else if (goalContext.mode === "all") {
+          contextMsg += ` [Context: ${goalContext.subjects.join(", ")}]`;
+        }
+      }
+      console.log(`   🔍 Retrieving context for: ${contextMsg}`);
 
       // Embed user message
       const embedding = await this.embedding.embedText(userMessage);
 
-      // Query Pinecone with student isolation
+      // Query Pinecone with student isolation and optional subject filtering
       const results = await this.pinecone.queryByStudent(
         embedding,
         studentId,
-        5 // top 5 results
+        5, // top 5 results
+        goalContext // Pass goal context for optional filtering
       );
 
-      // Format context from results
-      const context = results
-        .filter((r) => r.score >= 0.6) // Only include high-relevance results
+      // Format context from results - use lower threshold initially
+      const relevantResults = results.filter((r) => r.score >= 0.5); // Lowered from 0.6
+
+      console.log(
+        `   ℹ️  Filtering ${results.length} results by score >= 0.5: ${relevantResults.length} kept`
+      );
+
+      // Fetch full transcripts from Firestore
+      console.log(`   📚 Fetching full transcripts from Firestore...`);
+      const transcriptMap = new Map();
+
+      // Get unique transcript IDs
+      const uniqueTranscriptIds = [
+        ...new Set(relevantResults.map((r) => r.metadata.transcript_id)),
+      ];
+
+      // Fetch each transcript
+      for (const transcriptId of uniqueTranscriptIds) {
+        try {
+          const docs = await this.db
+            .collection("session_transcripts")
+            .where("transcript_id", "==", transcriptId)
+            .where("student_id", "==", studentId)
+            .limit(1)
+            .get();
+
+          if (!docs.empty) {
+            const transcriptData = docs.docs[0].data();
+            transcriptMap.set(transcriptId, transcriptData);
+            console.log(
+              `   ✅ Fetched: ${transcriptId} (${
+                transcriptData.transcript_body?.length || 0
+              } chars)`
+            );
+          }
+        } catch (error) {
+          console.log(
+            `   ⚠️  Could not fetch ${transcriptId}: ${error.message}`
+          );
+        }
+      }
+
+      const context = relevantResults
         .map((r) => {
-          return `[${r.metadata.subject} - ${r.metadata.transcript_id}]\n${r.metadata.chunk_text}`;
+          const subject = r.metadata.subject || "Unknown";
+          const transcriptId = r.metadata.transcript_id || "unknown";
+
+          // Try to get actual transcript content from Firestore first
+          let content = null;
+          const fullTranscript = transcriptMap.get(transcriptId);
+
+          if (fullTranscript?.transcript_body) {
+            content = fullTranscript.transcript_body;
+            console.log(
+              `   ✅ Using transcript body (${content.length} chars)`
+            );
+          } else {
+            // Try different fields from Firestore document
+            content =
+              fullTranscript?.content ||
+              fullTranscript?.text ||
+              r.metadata.chunk_text ||
+              r.metadata.content ||
+              r.metadata.transcript ||
+              r.metadata.text ||
+              "";
+          }
+
+          if (!content) {
+            console.warn(
+              `   ⚠️  No content for ${transcriptId}. Available Firestore keys:`,
+              fullTranscript
+                ? Object.keys(fullTranscript)
+                : "document not found"
+            );
+          }
+
+          return `[${subject} - ${transcriptId}]\n${content}`;
         })
         .join("\n\n");
 
-      console.log(`   ✅ Found ${results.length} relevant transcript chunks`);
+      if (context) {
+        console.log(
+          `   ✅ Formatted context: ${relevantResults.length} chunks (${content.length} chars)`
+        );
+      } else {
+        console.log(`   ⚠️  No content extracted from metadata`);
+      }
+
       return context;
     } catch (error) {
       console.warn(`   ⚠️  RAG retrieval failed: ${error.message}`);
@@ -197,11 +287,18 @@ class ChatService {
   /**
    * Main chat handler: Process message and generate response
    */
-  async chat(studentId, userMessage) {
+  async chat(studentId, userMessage, goalContext = null) {
     try {
       console.log(
         `\n💬 Chat: ${studentId} - "${userMessage.substring(0, 50)}..."`
       );
+      if (goalContext) {
+        if (goalContext.mode === "single") {
+          console.log(`   Subject Focus: ${goalContext.subject}`);
+        } else if (goalContext.mode === "all") {
+          console.log(`   Subject Context: ${goalContext.subjects.join(", ")}`);
+        }
+      }
 
       // Initialize if needed
       await this.initialize();
@@ -209,9 +306,32 @@ class ChatService {
       // Get context
       const student = await this.getStudentProfile(studentId);
       const goals = await this.getStudentGoals(studentId);
-      const ragContext = await this.retrieveContext(studentId, userMessage);
 
-      // Format prompt
+      // Retrieve context from RAG, filtering by goal context if provided
+      let ragContext = await this.retrieveContext(
+        studentId,
+        userMessage,
+        goalContext
+      );
+
+      // Format prompt with context awareness
+      let goalsDisplay = "";
+      if (goalContext && goalContext.mode === "single") {
+        goalsDisplay = `Current Focus: ${goalContext.goal_title} (${goalContext.subject})`;
+      } else if (
+        goalContext &&
+        goalContext.mode === "all" &&
+        goals.length > 0
+      ) {
+        goalsDisplay = `Current Goals: ${goals
+          .map((g) => `${g.subject} (${g.progress}%)`)
+          .join(", ")}`;
+      } else if (goals.length > 0) {
+        goalsDisplay = `Current Goals: ${goals
+          .map((g) => `${g.subject} (${g.progress}%)`)
+          .join(", ")}`;
+      }
+
       const systemPrompt = `You are an AI Study Companion helping students learn and prepare.
 Your role is to:
 1. Answer questions about previous lessons (using provided context)
@@ -221,34 +341,36 @@ Your role is to:
 5. Suggest booking a tutor when appropriate
 
 ${student ? `Student: ${student.name} (Grade ${student.grade})` : ""}
-${
-  goals.length > 0
-    ? `Current Goals: ${goals
-        .map((g) => `${g.subject} (${g.progress}%)`)
-        .join(", ")}`
-    : ""
-}
+${goalsDisplay}
 
 Guidelines:
 - Be encouraging and supportive
 - Use examples and analogies
-- Keep responses concise (2-3 paragraphs max)
+- Keep responses concise (1-2 paragraphs max)
 - If student seems frustrated, suggest tutoring
 - Focus on helping them understand, not just giving answers`;
 
       let contextSection = "";
-      if (ragContext) {
+      if (ragContext && ragContext.length > 0) {
         contextSection = `\n\nContext from Previous Lessons:\n${ragContext}`;
+        console.log(`   📚 RAG Context (${ragContext.length} chars):`);
+        console.log(`      ${ragContext.substring(0, 100)}...`);
+      } else {
+        console.log(`   ⚠️  No RAG context available`);
       }
 
-      // Call GPT-4o-mini
-      console.log(`   🤖 Calling GPT-4o-mini...`);
+      // Build full prompt
+      const fullSystemPrompt = systemPrompt + contextSection;
+      console.log(
+        `   🤖 Calling GPT-4o-mini with prompt (${fullSystemPrompt.length} chars)...`
+      );
+
       const response = await this.openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
           {
             role: "system",
-            content: systemPrompt + contextSection,
+            content: fullSystemPrompt,
           },
           {
             role: "user",

@@ -91,7 +91,14 @@ export function Navbar() {
               <Home className="w-4 h-4 mr-1" /> Dashboard
             </button>
             <button
-              onClick={() => navigate("/chat")}
+              onClick={() => {
+                const activeGoals = goals.filter(
+                  (g) => g.status !== "completed"
+                );
+                navigate("/chat", {
+                  state: { contextMode: "all", contextGoals: activeGoals },
+                });
+              }}
               className="px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors flex items-center"
             >
               <MessageCircle className="w-4 h-4 mr-1" /> Chat
@@ -180,7 +187,12 @@ export function Navbar() {
             </button>
             <button
               onClick={() => {
-                navigate("/chat");
+                const activeGoals = goals.filter(
+                  (g) => g.status !== "completed"
+                );
+                navigate("/chat", {
+                  state: { contextMode: "all", contextGoals: activeGoals },
+                });
                 setIsOpen(false);
               }}
               className="block w-full text-left px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg mb-2"
