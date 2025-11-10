@@ -139,11 +139,6 @@ export default function Dashboard() {
               typeof data.score === "number"
                 ? data.score
                 : parseInt(data.score) || 0;
-            console.log(
-              `Quiz result: score=${score}, data.score=${
-                data.score
-              }, type=${typeof data.score}`
-            );
 
             return {
               id: doc.id,
@@ -152,17 +147,6 @@ export default function Dashboard() {
               score: Math.round(score),
             };
           });
-
-          console.log(
-            "Quiz results loaded:",
-            results.length,
-            "Average:",
-            results.length > 0
-              ? Math.round(
-                  results.reduce((sum, r) => sum + r.score, 0) / results.length
-                )
-              : 0
-          );
 
           setQuizResults(results);
           setChartsLoading(false);

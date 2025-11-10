@@ -129,10 +129,6 @@ exports.generateRecommendationsOnGoalComplete = functions.firestore
         const completedSubject = after.subject;
         const completedGoal = after.goal || after.title;
 
-        console.log(
-          `🎉 Goal completed! Generating recommendations for ${studentId}`
-        );
-
         const db = admin.firestore();
 
         // Generate recommendations
@@ -142,10 +138,6 @@ exports.generateRecommendationsOnGoalComplete = functions.firestore
           completedSubject,
           completedGoal,
           db
-        );
-
-        console.log(
-          `   ✅ Recommendations generated (${recommendations.length} suggestions)`
         );
       }
     } catch (error) {
@@ -269,11 +261,6 @@ exports.chat = functions.https.onRequest(async (req, res) => {
     const { message, context_goals = [], context_mode = "all" } = req.body;
     const studentId = user.uid;
 
-    console.log(`\n📨 Chat request from student: ${studentId}`);
-    console.log(
-      `   Context: mode=${context_mode}, goals=${context_goals.length}`
-    );
-
     // Validate input
     if (
       !message ||
@@ -296,13 +283,6 @@ exports.chat = functions.https.onRequest(async (req, res) => {
     // Extract subject/context information from goals for RAG filtering
     let ragContext = null;
     if (context_goals && context_goals.length > 0) {
-      console.log(`   📋 Goal context received:`);
-      context_goals.forEach((g, idx) => {
-        console.log(
-          `      ${idx + 1}. subject=${g.subject}, id=${g.id}, title=${g.title}`
-        );
-      });
-
       if (context_mode === "single" && context_goals.length === 1) {
         // Single goal mode - focus RAG on that subject
         ragContext = {
@@ -311,9 +291,6 @@ exports.chat = functions.https.onRequest(async (req, res) => {
           goal_title: context_goals[0].title || context_goals[0].goal,
           mode: "single",
         };
-        console.log(
-          `   ✅ RAG Context: Single goal - subject="${ragContext.subject}"`
-        );
       } else if (context_mode === "all" && context_goals.length > 1) {
         // Multiple goals mode - use all subjects for RAG
         const subjects = context_goals.map((g) => g.subject).filter(Boolean);
@@ -322,9 +299,6 @@ exports.chat = functions.https.onRequest(async (req, res) => {
           goal_ids: context_goals.map((g) => g.id),
           mode: "all",
         };
-        console.log(
-          `   ✅ RAG Context: Multiple goals - ${subjects.join(", ")}`
-        );
       } else if (context_goals.length === 1) {
         // Single goal even if not explicitly in single mode
         ragContext = {
@@ -333,9 +307,6 @@ exports.chat = functions.https.onRequest(async (req, res) => {
           goal_title: context_goals[0].title || context_goals[0].goal,
           mode: "single",
         };
-        console.log(
-          `   ✅ RAG Context: Single goal - subject="${ragContext.subject}"`
-        );
       }
     } else {
       console.log(`   ⚠️  No goal context provided`);
@@ -410,11 +381,6 @@ exports.chatInitialContext = functions.https.onRequest(async (req, res) => {
       .filter((id) => id.trim())
       .map((id) => id.trim());
 
-    console.log(`📋 Loading initial context for student: ${studentId}`);
-    console.log(
-      `   Context: mode=${contextMode}, goal_ids=${contextGoalIds.join(", ")}`
-    );
-
     const db = admin.firestore();
     const studentDoc = await db.collection("students").doc(studentId).get();
 
@@ -427,7 +393,6 @@ exports.chatInitialContext = functions.https.onRequest(async (req, res) => {
 
     const student = studentDoc.data();
     const name = student.name || "there";
-    console.log(`   ✅ Found student: ${name}`);
 
     // Fetch context goals if provided
     let contextGoals = [];
@@ -439,7 +404,6 @@ exports.chatInitialContext = functions.https.onRequest(async (req, res) => {
             contextGoals.push({ id: goalDoc.id, ...goalDoc.data() });
           }
         }
-        console.log(`   ✅ Loaded ${contextGoals.length} context goals`);
       } catch (error) {
         console.warn(`   Could not fetch context goals: ${error.message}`);
       }

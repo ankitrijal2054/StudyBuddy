@@ -58,10 +58,6 @@ export default function Chat() {
   const loadInitialGreeting = useCallback(async () => {
     if (!currentUser) return;
     try {
-      console.log("loadInitialGreeting called - fetching from backend", {
-        contextMode,
-        contextGoalsCount: contextGoals.length,
-      });
       setContextLoading(true);
       const idToken = await currentUser.getIdToken();
 
@@ -80,7 +76,6 @@ export default function Chat() {
         isGreeting: true,
       };
 
-      console.log("Setting greeting message:", greetingMessage);
       setMessages([greetingMessage]);
     } catch (err) {
       console.error("Failed to load greeting:", err);
@@ -91,7 +86,6 @@ export default function Chat() {
         timestamp: new Date(),
         isGreeting: true,
       };
-      console.log("Setting fallback greeting:", fallbackMessage);
       setMessages([fallbackMessage]);
     } finally {
       setContextLoading(false);
@@ -159,17 +153,11 @@ export default function Chat() {
 
   // Load initial greeting on mount (only if no messages)
   useEffect(() => {
-    console.log(
-      "Greeting effect triggered - messages.length:",
-      messages.length
-    );
     if (currentUser) {
       // Only load greeting if there are no messages
       if (messages.length === 0) {
-        console.log("Loading initial greeting...");
         loadInitialGreeting();
       } else {
-        console.log("Messages exist, not loading greeting");
         setContextLoading(false);
       }
     }

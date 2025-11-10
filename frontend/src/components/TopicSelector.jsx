@@ -85,26 +85,15 @@ export const TopicSelector = ({
   };
 
   const handleCreateGoal = async () => {
-    console.log("TopicSelector: Create goal clicked");
-
     if (!newGoalSubject.trim() || !newGoalTitle.trim()) {
-      console.log("TopicSelector: Validation failed - empty subject or title");
       toast.error("Please fill in all fields");
       return;
     }
 
     if (!currentUser) {
-      console.log("TopicSelector: No current user");
       toast.error("You must be logged in to create a goal");
       return;
     }
-
-    console.log(
-      "TopicSelector: Creating goal for UID:",
-      currentUser.uid,
-      "Subject:",
-      newGoalSubject
-    );
 
     setCreatingGoal(true);
     try {
@@ -120,10 +109,6 @@ export const TopicSelector = ({
         updated_at: new Date().toISOString(),
       });
 
-      console.log(
-        "TopicSelector: Goal created successfully with ID:",
-        docRef.id
-      );
       toast.success(`Goal "${newGoalSubject}" created! 🎯`);
 
       // Reset form
@@ -133,9 +118,6 @@ export const TopicSelector = ({
 
       // The listener will automatically update activeGoals
     } catch (error) {
-      console.error("TopicSelector: Error creating goal:", error);
-      console.error("TopicSelector: Error code:", error.code);
-      console.error("TopicSelector: Error message:", error.message);
       toast.error(`Failed to create goal: ${error.message}`);
     } finally {
       setCreatingGoal(false);
