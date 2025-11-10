@@ -72,6 +72,7 @@ async function submitQuiz(quizId, studentId, answers, db) {
       total_count: totalCount,
       question_results: questionResults,
       created_at: new Date().toISOString(),
+      completed_at: new Date().toISOString(),
     });
 
     console.log(`Quiz result saved: ${resultId}`);

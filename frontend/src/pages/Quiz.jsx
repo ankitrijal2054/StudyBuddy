@@ -11,8 +11,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { GoalCompletionModal } from "@/components/GoalCompletionModal";
-import { getAuth } from "firebase/auth";
 import toast from "react-hot-toast";
+import { quizAPI } from "@/services/apiService";
 import {
   ArrowLeft,
   BookOpen,
@@ -28,7 +28,6 @@ export default function Quiz() {
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser } = useAuth();
-  const auth = getAuth();
 
   // State with localStorage persistence
   const [loading, setLoading] = useState(true);
@@ -64,7 +63,6 @@ export default function Quiz() {
   });
 
   const goalId = location.state?.goalId;
-  const goal = location.state?.goal;
 
   // Validate that we have a goal selected
   useEffect(() => {
@@ -84,53 +82,11 @@ export default function Quiz() {
         setLoading(true);
         const token = await currentUser.getIdToken();
 
-        const response = await fetch(
-          `${
-            import.meta.env.VITE_CLOUD_RUN_URL || "http://localhost:8080"
-          }/api/quiz/generate`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              goal_id: goalId,
-              num_questions: 5,
-            }),
-          }
-        );
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || "Failed to generate quiz");
-        }
-
-        const data = await response.json();
+        const data = await quizAPI.generateQuiz(goalId, 5, token);
         setQuiz(data.quiz);
-
-        // Log all quiz results with correct answers
-        console.log("\n📋 QUIZ LOADED - All Questions & Answers:");
-        console.log("=".repeat(60));
-        console.log(`📚 Subject: ${data.quiz.subject}`);
-        console.log(`📖 Title: ${data.quiz.title}`);
-        console.log(`⚡ Difficulty: ${data.quiz.difficulty}`);
-        console.log(`📝 Total Questions: ${data.quiz.num_questions}`);
-        console.log("=".repeat(60));
-
-        data.quiz.questions.forEach((q, idx) => {
-          console.log(`\n❓ Question ${idx + 1}: ${q.question}`);
-          console.log(`   Options:`);
-          Object.entries(q.options).forEach(([key, value]) => {
-            const isCorrect = key === q.correct_answer ? " ✅ CORRECT" : "";
-            console.log(`   ${key.toUpperCase()}) ${value}${isCorrect}`);
-          });
-          console.log(`   Answer Key: ${q.correct_answer.toUpperCase()}`);
-        });
-
-        console.log("\n" + "=".repeat(60));
-        console.log("✅ Quiz ready to take!\n");
-
+        // Reset answers for new quiz
+        setAnswers({});
+        setCurrentQuestionIndex(0);
         toast.success("Quiz generated! Let's get started 🎯");
       } catch (error) {
         console.error("Quiz generation error:", error);
@@ -146,28 +102,6 @@ export default function Quiz() {
       generateQuiz();
     } else {
       setLoading(false);
-
-      // Also log when loading from localStorage
-      console.log("\n📋 QUIZ LOADED FROM CACHE - All Questions & Answers:");
-      console.log("=".repeat(60));
-      console.log(`📚 Subject: ${quiz.subject}`);
-      console.log(`📖 Title: ${quiz.title}`);
-      console.log(`⚡ Difficulty: ${quiz.difficulty}`);
-      console.log(`📝 Total Questions: ${quiz.num_questions}`);
-      console.log("=".repeat(60));
-
-      quiz.questions.forEach((q, idx) => {
-        console.log(`\n❓ Question ${idx + 1}: ${q.question}`);
-        console.log(`   Options:`);
-        Object.entries(q.options).forEach(([key, value]) => {
-          const isCorrect = key === q.correct_answer ? " ✅ CORRECT" : "";
-          console.log(`   ${key.toUpperCase()}) ${value}${isCorrect}`);
-        });
-        console.log(`   Answer Key: ${q.correct_answer.toUpperCase()}`);
-      });
-
-      console.log("\n" + "=".repeat(60));
-      console.log("✅ Quiz ready to take!\n");
     }
   }, [currentUser, goalId, navigate, quiz]);
 
@@ -179,6 +113,18 @@ export default function Quiz() {
       } catch (e) {
         console.error("Failed to save quiz data:", e);
       }
+    }
+  }, [quiz]);
+
+  // Log quiz answers whenever quiz data is available
+  useEffect(() => {
+    if (quiz && quiz.questions && quiz.questions.length > 0) {
+      console.log("📝 Quiz Answers (for debugging):");
+      quiz.questions.forEach((q, idx) => {
+        console.log(`Question ${idx + 1}: ${q.question}`);
+        console.log(`Correct Answer: ${q.correct_answer}`);
+        console.log("---");
+      });
     }
   }, [quiz]);
 
@@ -241,28 +187,7 @@ export default function Quiz() {
           const generateNewQuiz = async () => {
             try {
               const token = await currentUser.getIdToken();
-              const response = await fetch(
-                `${
-                  import.meta.env.VITE_CLOUD_RUN_URL || "http://localhost:8080"
-                }/api/quiz/generate`,
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                  },
-                  body: JSON.stringify({
-                    goal_id: goalId,
-                    num_questions: 5,
-                  }),
-                }
-              );
-
-              if (!response.ok) {
-                throw new Error("Failed to generate new quiz");
-              }
-
-              const data = await response.json();
+              const data = await quizAPI.generateQuiz(goalId, 5, token);
               setQuiz(data.quiz);
               toast.success("New quiz generated! 🎯");
             } catch (error) {
@@ -281,10 +206,10 @@ export default function Quiz() {
   };
 
   // Handle answer selection
-  const handleSelectAnswer = (questionId, option) => {
+  const handleSelectAnswer = (questionIndex, option) => {
     setAnswers((prev) => ({
       ...prev,
-      [questionId]: option,
+      [questionIndex]: option,
     }));
   };
 
@@ -292,9 +217,7 @@ export default function Quiz() {
   const allAnswered =
     quiz &&
     quiz.questions.length > 0 &&
-    quiz.questions.every(
-      (q, idx) => answers[q.id] !== undefined || answers[idx] !== undefined
-    );
+    quiz.questions.every((q, idx) => answers[idx] !== undefined);
 
   // Submit quiz
   const handleSubmitQuiz = async () => {
@@ -307,35 +230,13 @@ export default function Quiz() {
       setSubmitting(true);
       const token = await currentUser.getIdToken();
 
-      // Map questions to answers (handle both id and index-based lookups)
+      // Map questions to answers by index
       const answerMap = {};
       quiz.questions.forEach((q, idx) => {
-        answerMap[q.id] = answers[q.id] || answers[idx];
+        answerMap[idx] = answers[idx];
       });
 
-      const response = await fetch(
-        `${
-          import.meta.env.VITE_CLOUD_RUN_URL || "http://localhost:8080"
-        }/api/quiz/submit`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            quiz_id: quiz.quiz_id,
-            answers: answerMap,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to submit quiz");
-      }
-
-      const data = await response.json();
+      const data = await quizAPI.submitQuiz(quiz.quiz_id, answerMap, token);
       setResult(data.result);
 
       // Clear localStorage after successful submission
@@ -751,15 +652,9 @@ export default function Quiz() {
               <QuestionCard
                 question={quiz.questions[currentQuestionIndex]}
                 questionNumber={currentQuestionIndex + 1}
-                selected={
-                  answers[quiz.questions[currentQuestionIndex].id] ||
-                  answers[currentQuestionIndex]
-                }
+                selected={answers[currentQuestionIndex]}
                 onSelect={(option) =>
-                  handleSelectAnswer(
-                    quiz.questions[currentQuestionIndex].id,
-                    option
-                  )
+                  handleSelectAnswer(currentQuestionIndex, option)
                 }
               />
             </div>
@@ -790,8 +685,8 @@ export default function Quiz() {
 // Question Card Component
 function QuestionCard({ question, questionNumber, selected, onSelect }) {
   return (
-    <Card className="overflow-hidden border-2 border-gray-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-600 transition-colors">
-      <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-slate-800 dark:to-slate-700 py-3">
+    <Card className="overflow-hidden border-2 border-gray-200 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500 transition-colors">
+      <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-slate-700 dark:to-slate-600 py-3">
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <CardTitle className="text-base text-gray-900 dark:text-white">
@@ -810,13 +705,13 @@ function QuestionCard({ question, questionNumber, selected, onSelect }) {
             className={`flex items-start p-3 rounded-lg border-2 cursor-pointer transition-all ${
               selected === key
                 ? "border-blue-600 bg-blue-50 dark:bg-blue-900/20"
-                : "border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-blue-300 dark:hover:border-blue-500"
+                : "border-gray-300 dark:border-slate-500 bg-white dark:bg-slate-700 hover:border-blue-300 dark:hover:border-blue-500"
             }`}
             onClick={() => onSelect(key)}
           >
             <input
               type="radio"
-              name={`question-${question.id}`}
+              name={`question-${questionNumber}`}
               value={key}
               checked={selected === key}
               onChange={() => onSelect(key)}

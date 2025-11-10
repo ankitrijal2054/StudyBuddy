@@ -9,22 +9,26 @@
  * Modern Nerdy-inspired design with smooth animations
  */
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Navbar } from "../components/Navbar";
+import { BookTutor } from "../components/BookTutor";
 import { useNavigate, useLocation } from "react-router-dom";
+import { chatAPI } from "../services/apiService";
 import {
   Loader2,
   Send,
-  Home,
   MessageCircle,
   Bot,
   Sparkles,
   BookOpen,
   ArrowLeft,
+  Users,
 } from "lucide-react";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { db } from "../firebase";
 
 export default function Chat() {
   const { currentUser } = useAuth();
@@ -32,99 +36,37 @@ export default function Chat() {
   const location = useLocation();
   const messagesEndRef = useRef(null);
 
-  // Get goal context from navigation state (when clicked from dashboard goal card)
-  const goalContext = location.state?.goal;
-  const goalSubject = location.state?.subject || goalContext?.subject;
+  // Get goal context from navigation state
+  const contextMode = location.state?.contextMode || "all"; // "all" or "single"
+  const contextGoals = useMemo(
+    () => location.state?.contextGoals || [],
+    [location.state?.contextGoals]
+  );
 
-  const [messages, setMessages] = useState(() => {
-    // Try to load messages from localStorage on mount
-    try {
-      const saved = localStorage.getItem("chat_messages");
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      console.error("Failed to load chat messages:", e);
-      return [];
-    }
-  });
-  const [input, setInput] = useState(() => {
-    // Try to load input from localStorage on mount
-    try {
-      return localStorage.getItem("chat_input") || "";
-    } catch (e) {
-      console.error("Failed to load chat input:", e);
-      return "";
-    }
-  });
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [contextLoading, setContextLoading] = useState(true);
-
-  // Save messages to localStorage whenever they change
-  useEffect(() => {
-    try {
-      localStorage.setItem("chat_messages", JSON.stringify(messages));
-    } catch (e) {
-      console.error("Failed to save chat messages:", e);
-    }
-  }, [messages]);
-
-  // Save input to localStorage whenever it changes
-  useEffect(() => {
-    try {
-      localStorage.setItem("chat_input", input);
-    } catch (e) {
-      console.error("Failed to save chat input:", e);
-    }
-  }, [input]);
-
-  // Redirect if not authenticated
-  useEffect(() => {
-    if (!currentUser) {
-      navigate("/login");
-    }
-  }, [currentUser, navigate]);
-
-  // Load initial greeting on mount (only if no saved messages)
-  useEffect(() => {
-    if (currentUser) {
-      // Only load greeting if there are no saved messages
-      if (messages.length === 0) {
-        loadInitialGreeting();
-      } else {
-        setContextLoading(false);
-      }
-    }
-  }, [currentUser]);
-
-  // Auto-scroll to bottom when messages change
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  const [isBookTutorOpen, setIsBookTutorOpen] = useState(false);
+  const [goals, setGoals] = useState([]);
+  const [showBookTutorSuggestion, setShowBookTutorSuggestion] = useState(false);
 
   /**
    * Load initial context and display greeting
    */
-  const loadInitialGreeting = async () => {
+  const loadInitialGreeting = useCallback(async () => {
+    if (!currentUser) return;
     try {
       setContextLoading(true);
       const idToken = await currentUser.getIdToken();
 
-      const response = await fetch(
-        `${import.meta.env.VITE_CLOUD_RUN_URL}/api/chat/initial-context`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${idToken}`,
-            "Content-Type": "application/json",
-          },
-        }
+      // Pass context goals to initial context endpoint
+      const data = await chatAPI.getInitialContext(
+        idToken,
+        contextGoals,
+        contextMode
       );
-
-      if (!response.ok) {
-        throw new Error("Failed to load context");
-      }
-
-      const data = await response.json();
 
       // Add greeting as first message
       const greetingMessage = {
@@ -136,26 +78,103 @@ export default function Chat() {
 
       setMessages([greetingMessage]);
     } catch (err) {
-      console.error("❌ Greeting error:", err);
+      console.error("Failed to load greeting:", err);
       // Fallback greeting if context loading fails
-      setMessages([
-        {
-          role: "assistant",
-          content: "👋 Hey there! What would you like to work on today?",
-          timestamp: new Date(),
-          isGreeting: true,
-        },
-      ]);
+      const fallbackMessage = {
+        role: "assistant",
+        content: "👋 Hey there! What would you like to work on today?",
+        timestamp: new Date(),
+        isGreeting: true,
+      };
+      setMessages([fallbackMessage]);
     } finally {
       setContextLoading(false);
     }
-  };
+  }, [currentUser, contextGoals, contextMode]);
+
+  // Reset chat when component mounts or when navigating to chat
+  useEffect(() => {
+    // Clear any previous chat session when returning to chat
+    setMessages([]);
+    setInput("");
+    setError("");
+
+    // Also clear any old localStorage entries just in case
+    try {
+      localStorage.removeItem("chat_messages");
+      localStorage.removeItem("chat_input");
+    } catch (e) {
+      console.warn("Could not clear localStorage:", e);
+    }
+
+    // Clear entire localStorage keys that might contain chat data
+    const keysToCheck = Object.keys(localStorage);
+    keysToCheck.forEach((key) => {
+      if (
+        key.toLowerCase().includes("chat") ||
+        key.toLowerCase().includes("message")
+      ) {
+        localStorage.removeItem(key);
+      }
+    });
+  }, []);
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!currentUser) {
+      navigate("/login");
+    }
+  }, [currentUser, navigate]);
+
+  // Load user's goals for tutor booking
+  useEffect(() => {
+    if (!currentUser) return;
+
+    try {
+      const goalsQuery = query(
+        collection(db, "goals"),
+        where("student_id", "==", currentUser.uid),
+        where("status", "!=", "completed")
+      );
+
+      const unsubscribe = onSnapshot(goalsQuery, (snapshot) => {
+        const goalsData = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setGoals(goalsData);
+      });
+
+      return () => unsubscribe();
+    } catch (error) {
+      console.error("Error loading goals:", error);
+    }
+  }, [currentUser]);
+
+  // Load initial greeting on mount (only if no messages)
+  useEffect(() => {
+    if (currentUser) {
+      // Only load greeting if there are no messages
+      if (messages.length === 0) {
+        loadInitialGreeting();
+      } else {
+        setContextLoading(false);
+      }
+    }
+  }, [currentUser, messages.length, loadInitialGreeting]);
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   /**
    * Send message and get AI response
    */
   const handleSendMessage = async () => {
     if (!input.trim()) return;
+
+    const userInput = input;
 
     try {
       setError("");
@@ -164,40 +183,23 @@ export default function Chat() {
       // Add user message to display immediately
       const userMessage = {
         role: "user",
-        content: input,
+        content: userInput,
         timestamp: new Date(),
       };
 
       setMessages((prev) => [...prev, userMessage]);
-      const userInput = input;
       setInput("");
 
       // Get ID token
       const idToken = await currentUser.getIdToken();
 
-      // Call chat endpoint
-      const response = await fetch(
-        `${import.meta.env.VITE_CLOUD_RUN_URL}/api/chat`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${idToken}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            message: userInput,
-          }),
-        }
+      // Call chat endpoint with context goals
+      const data = await chatAPI.sendMessage(
+        userInput,
+        idToken,
+        contextGoals,
+        contextMode
       );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.message || `Chat failed: ${response.statusText}`
-        );
-      }
-
-      const data = await response.json();
 
       // Add AI response
       const aiMessage = {
@@ -211,12 +213,10 @@ export default function Chat() {
 
       // Show handoff suggestion if needed
       if (data.metadata.handoff_suggested) {
-        setError(
-          "💡 Pro Tip: I think a tutor could help you even better with this. Consider booking a session!"
-        );
+        setShowBookTutorSuggestion(true);
       }
     } catch (err) {
-      console.error("❌ Chat error:", err);
+      console.error("Failed to send message:", err);
       setError(err.message || "Failed to send message");
 
       // Remove the last user message if there was an error
@@ -243,15 +243,9 @@ export default function Chat() {
         "Are you sure you want to clear all messages? This cannot be undone."
       )
     ) {
-      try {
-        localStorage.removeItem("chat_messages");
-        localStorage.removeItem("chat_input");
-        setMessages([]);
-        setInput("");
-        loadInitialGreeting();
-      } catch (e) {
-        console.error("Failed to clear chat:", e);
-      }
+      setMessages([]);
+      setInput("");
+      loadInitialGreeting();
     }
   };
 
@@ -262,7 +256,7 @@ export default function Chat() {
   return (
     <>
       <Navbar />
-      <div className="h-[calc(100vh-64px)] bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-slate-950 dark:via-slate-900 dark:to-purple-950 flex flex-col overflow-hidden">
+      <div className="h-[calc(100vh-64px)] bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex flex-col overflow-hidden">
         <div className="max-w-4xl mx-auto w-full flex-1 flex flex-col p-4 md:p-6 overflow-hidden">
           {/* Header */}
           <div className="mb-6 flex items-center justify-between animate-slide-down flex-shrink-0">
@@ -282,18 +276,6 @@ export default function Chat() {
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
                       Study Companion
                     </h1>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {goalSubject ? (
-                        <>
-                          Learning:{" "}
-                          <span className="font-semibold text-blue-600 dark:text-blue-400">
-                            {goalSubject}
-                          </span>
-                        </>
-                      ) : (
-                        "Powered by AI • Always Learning"
-                      )}
-                    </p>
                   </div>
                 </div>
               </div>
@@ -305,11 +287,6 @@ export default function Chat() {
               >
                 Clear Chat
               </button>
-              <div className="text-right hidden sm:block">
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {contextLoading ? "Loading..." : "Ready to help"}
-                </p>
-              </div>
             </div>
           </div>
 
@@ -322,7 +299,7 @@ export default function Chat() {
                     <Sparkles className="w-8 h-8 text-white" />
                   </div>
                   <p className="text-gray-600 dark:text-gray-400 text-lg font-medium">
-                    Loading your personalized greeting...
+                    Firing up the AI...
                   </p>
                 </div>
               </div>
@@ -395,11 +372,39 @@ export default function Chat() {
             <div ref={messagesEndRef} />
           </div>
 
+          {/* Book Tutor Suggestion Alert */}
+          {showBookTutorSuggestion && (
+            <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 border border-blue-200 dark:border-blue-700 rounded-xl text-sm animate-slide-down flex-shrink-0">
+              <div className="flex items-start justify-between">
+                <div className="flex items-start flex-1">
+                  <span className="mr-3 text-lg">✨</span>
+                  <div>
+                    <p className="text-blue-800 dark:text-blue-200 font-medium">
+                      I think a tutor could help you even better with this!
+                    </p>
+                    <p className="text-blue-700 dark:text-blue-300 text-xs mt-1">
+                      Get personalized one-on-one help from our expert tutors.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setIsBookTutorOpen(true);
+                    setShowBookTutorSuggestion(false);
+                  }}
+                  className="ml-4 px-3 py-1.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-xs font-medium rounded-lg hover:opacity-90 transition-opacity whitespace-nowrap"
+                >
+                  Book Now
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Error Alert */}
-          {error && (
-            <div className="p-4 bg-gradient-to-r from-yellow-50 to-amber-50 dark:from-yellow-900/30 dark:to-amber-900/30 border border-yellow-200 dark:border-yellow-700 rounded-xl text-sm text-yellow-800 dark:text-yellow-200 animate-slide-down flex-shrink-0">
+          {error && !showBookTutorSuggestion && (
+            <div className="p-4 bg-gradient-to-r from-red-50 to-red-50 dark:from-red-900/30 dark:to-red-900/30 border border-red-200 dark:border-red-700 rounded-xl text-sm text-red-800 dark:text-red-200 animate-slide-down flex-shrink-0">
               <div className="flex items-start">
-                <span className="mr-3 text-lg">💡</span>
+                <span className="mr-3 text-lg">❌</span>
                 <span>{error}</span>
               </div>
             </div>
@@ -435,6 +440,13 @@ export default function Chat() {
             </p>
           </div>
         </div>
+
+        {/* Book Tutor Modal */}
+        <BookTutor
+          isOpen={isBookTutorOpen}
+          onClose={() => setIsBookTutorOpen(false)}
+          userGoals={goals}
+        />
       </div>
     </>
   );

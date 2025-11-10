@@ -142,14 +142,22 @@ class PineconeService {
   /**
    * Query Pinecone for similar vectors (semantic search)
    * Filters by student_id to prevent cross-student data access
+   * Optionally filters by subject/goals for context-aware RAG
    *
    * @param {Array<number>} embedding - Query vector (1536 dimensions)
    * @param {string} studentId - Student ID for filtering
    * @param {number} topK - Number of results (default: 5)
+   * @param {object} goalContext - Optional goal context with subject(s) for filtering
    * @param {number} minScore - Minimum similarity score (default: 0.0)
    * @returns {Promise<Array<Object>>} Top K matching results with metadata
    */
-  async queryByStudent(embedding, studentId, topK = 5, minScore = 0.0) {
+  async queryByStudent(
+    embedding,
+    studentId,
+    topK = 5,
+    goalContext = null,
+    minScore = 0.0
+  ) {
     if (!this.index) {
       throw new Error("Pinecone not initialized. Call initialize() first.");
     }
@@ -167,14 +175,38 @@ class PineconeService {
     }
 
     try {
-      // Query with metadata filter for student isolation
+      // Build metadata filter
+      let filter = {
+        student_id: { $eq: studentId },
+      };
+
+      // Add subject filter if goal context provided
+      if (goalContext) {
+        if (goalContext.mode === "single" && goalContext.subject) {
+          // Single goal: filter to specific subject
+          filter.subject = { $eq: goalContext.subject };
+          console.log(
+            `   📍 Pinecone filter: student_id=${studentId}, subject=${goalContext.subject}`
+          );
+        } else if (goalContext.mode === "all" && goalContext.subjects) {
+          // Multiple goals: filter to any of the subjects
+          filter.subject = { $in: goalContext.subjects };
+          console.log(
+            `   📍 Pinecone filter: student_id=${studentId}, subjects=${goalContext.subjects.join(
+              ", "
+            )}`
+          );
+        }
+      } else {
+        console.log(`   📍 Pinecone filter: student_id=${studentId}`);
+      }
+
+      // Query with metadata filter for student isolation and context
       const results = await this.index.query({
         vector: embedding,
         topK,
         includeMetadata: true,
-        filter: {
-          student_id: { $eq: studentId },
-        },
+        filter,
       });
 
       // Filter by minimum score and format results
@@ -187,6 +219,9 @@ class PineconeService {
           metadata: match.metadata,
         }));
 
+      console.log(
+        `   ✅ Retrieved ${formattedResults.length} results from Pinecone`
+      );
       return formattedResults;
     } catch (error) {
       throw new Error(`Query failed: ${error.message}`);
